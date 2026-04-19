@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nebula Rush</title>
+    <style>
+        :root{--bg:#07111f;--bg2:#10233f;--panel:rgba(7,17,31,.78);--line:rgba(141,247,255,.16);--text:#f4fbff;--muted:#a5bdd0;--cyan:#8df7ff;--gold:#ffd166;--red:#ff5d73;--green:#62f2a2}
+        *{box-sizing:border-box} body{margin:0;min-height:100vh;font-family:"Trebuchet MS","Segoe UI",sans-serif;color:var(--text);background:radial-gradient(circle at 20% 10%,rgba(255,209,102,.15),transparent 20%),radial-gradient(circle at 80% 0,rgba(141,247,255,.15),transparent 22%),linear-gradient(160deg,var(--bg),var(--bg2) 60%,#03070f);display:grid;place-items:center;padding:20px}
+        .shell{width:min(1150px,100%);display:grid;grid-template-columns:1.15fr .85fr;gap:18px}.panel{background:var(--panel);border:1px solid var(--line);border-radius:28px;box-shadow:0 28px 70px rgba(0,0,0,.38);backdrop-filter:blur(14px)}
+        .game{padding:16px}.hud{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px}.stat{padding:14px;border:1px solid var(--line);border-radius:18px;background:rgba(255,255,255,.03)}.lab{font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:8px}.val{font-size:30px;font-weight:800}
+        .wrap{position:relative;border-radius:22px;overflow:hidden;border:1px solid var(--line)} canvas{display:block;width:100%;height:auto;aspect-ratio:16/10;background:linear-gradient(180deg,#08101c,#020611)}
+        .overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,rgba(3,8,18,.14),rgba(3,8,18,.72));transition:.2s}.overlay.hidden{opacity:0;pointer-events:none}.card{width:min(500px,calc(100% - 32px));padding:28px;border-radius:28px;background:rgba(4,10,19,.83);border:1px solid rgba(255,255,255,.1);text-align:center}
+        .card h2{margin:0 0 10px;font-size:42px}.card p{margin:0 0 18px;color:var(--muted);line-height:1.55}.row{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}.btn{border:0;border-radius:999px;padding:13px 20px;font-size:15px;font-weight:800;cursor:pointer}.pri{background:linear-gradient(135deg,var(--cyan),var(--gold));color:#07111f}.sec{background:rgba(255,255,255,.07);color:var(--text);text-decoration:none;border:1px solid rgba(255,255,255,.1)}
+        .mobile{display:none;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:12px}.touch{min-height:54px;border-radius:16px;border:1px solid var(--line);background:rgba(255,255,255,.05);color:var(--text);font-weight:800}
+        .side{padding:24px;display:grid;gap:16px;align-content:start}.ey{font-size:12px;letter-spacing:.24em;text-transform:uppercase;color:var(--cyan)} h1{margin:0;font:700 clamp(40px,6vw,76px)/.94 Georgia,serif}.lead,.txt{margin:0;color:var(--muted);line-height:1.55}
+        .box{padding:16px;border:1px solid var(--line);border-radius:18px;background:rgba(255,255,255,.03)}.title{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--cyan);margin:0 0 8px}.item{display:flex;align-items:center;gap:10px;color:var(--muted);margin-top:8px}.dot{width:14px;height:14px;border-radius:50%;box-shadow:0 0 14px currentColor}.r{color:var(--red);background:var(--red)}.g{color:var(--green);background:var(--green)}.c{color:var(--cyan);background:var(--cyan)}.y{color:var(--gold);background:var(--gold)}
+        @media (max-width:980px){.shell{grid-template-columns:1fr}} @media (max-width:720px){body{padding:12px}.hud{grid-template-columns:repeat(2,1fr)}.mobile{display:grid}.side{padding:18px}}
+    </style>
+</head>
+<body>
+    <div class="shell">
+        <section class="panel game">
+            <div class="hud">
+                <div class="stat"><span class="lab">Hisob</span><div class="val" id="score">0</div></div>
+                <div class="stat"><span class="lab">Jon</span><div class="val" id="health">100</div></div>
+                <div class="stat"><span class="lab">Combo</span><div class="val" id="combo">x1.0</div></div>
+                <div class="stat"><span class="lab">Rekord</span><div class="val" id="best">0</div></div>
+            </div>
+            <div class="wrap">
+                <canvas id="game" width="960" height="600"></canvas>
+                <div class="overlay" id="overlay">
+                    <div class="card">
+                        <h2 id="ovTitle">Nebula Rush</h2>
+                        <p id="ovText">Meteorlardan qoching, kristallarni yig'ing, pulse bilan yo'l oching. Bu safar o'yin ancha jiddiy.</p>
+                        <div class="row">
+                            <button class="btn pri" id="startBtn">Start</button>
+                            <a class="btn sec" href="{% url 'home' %}">Asosiy sahifa</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="mobile">
+                <button class="touch" id="boostBtn">Boost</button>
+                <button class="touch" id="pulseBtn">Pulse</button>
+            </div>
+        </section>
+        <aside class="panel side">
+            <div class="ey">Arcade Mode</div>
+            <h1>Eng zo'r kosmik run</h1>
+            <p class="lead">Kema pastga tortiladi. Boost bilan ko'taring, pulse bilan asteroidlarni parchalab yo'l oching. Combo ushlasangiz ochko juda tez o'sadi.</p>
+            <div class="box"><p class="title">Boshqaruv</p><p class="txt">`W`, `Space`, `ArrowUp` yoki bosib turish bilan boost. `Shift` yoki `S` bilan pulse.</p></div>
+            <div class="box">
+                <p class="title">Elementlar</p>
+                <div class="item"><span class="dot r"></span>Meteor zarar beradi</div>
+                <div class="item"><span class="dot y"></span>Kristall ochko beradi</div>
+                <div class="item"><span class="dot g"></span>Heal jon qaytaradi</div>
+                <div class="item"><span class="dot c"></span>Pulse orb quvvat beradi</div>
+            </div>
+            <div class="box"><p class="title">Taktika</p><p class="txt">Bir nechta meteor yonma-yon kelsa pulse ishlating. Kristallarni ketma-ket olsangiz combo ko'payadi va rekord osonroq yangilanadi.</p></div>
+        </aside>
+    </div>
+    <script>
+        const c=document.getElementById("game"),x=c.getContext("2d"),overlay=document.getElementById("overlay"),ovTitle=document.getElementById("ovTitle"),ovText=document.getElementById("ovText"),startBtn=document.getElementById("startBtn"),boostBtn=document.getElementById("boostBtn"),pulseBtn=document.getElementById("pulseBtn");
+        const scoreEl=document.getElementById("score"),healthEl=document.getElementById("health"),comboEl=document.getElementById("combo"),bestEl=document.getElementById("best");
+        const key="nebula-rush-best",bestState={value:Number(localStorage.getItem(key)||0)}; bestEl.textContent=bestState.value;
+        const s={run:false,last:0,score:0,health:100,combo:1,comboT:0,speed:280,dist:0,pulse:100,spawn:0,pick:0,supply:3.8,flash:0,stars:[],parts:[],haz:[],pickups:[],waves:[],ship:{x:170,y:300,r:22,vy:0,boost:false}};
+        const rnd=(a,b)=>Math.random()*(b-a)+a, clamp=(n,a,b)=>Math.max(a,Math.min(b,n)), col=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y)<a.r+b.r;
+        function stars(){s.stars=Array.from({length:85},()=>({x:rnd(0,c.width),y:rnd(0,c.height),z:rnd(.5,2.6),v:rnd(40,170)}))}
+        function hud(){scoreEl.textContent=Math.floor(s.score);healthEl.textContent=Math.max(0,Math.floor(s.health));comboEl.textContent=`x${s.combo.toFixed(1)}`;bestEl.textContent=bestState.value}
+        function start(){Object.assign(s,{run:true,last:0,score:0,health:100,combo:1,comboT:0,speed:280,dist:0,pulse:100,spawn:0,pick:0,supply:3.8,flash:0,parts:[],haz:[],pickups:[],waves:[]});s.ship.y=c.height/2;s.ship.vy=0;s.ship.boost=false;stars();hud();overlay.classList.add("hidden");requestAnimationFrame(loop)}
+        function part(px,py,color,n,f){for(let i=0;i<n;i++){let a=rnd(0,Math.PI*2),v=rnd(f*.4,f);s.parts.push({x:px,y:py,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life:rnd(.4,.9),size:rnd(2,5),color})}}
+        function spawnHaz(){let r=rnd(16,34);s.haz.push({x:c.width+r+30,y:rnd(50,c.height-50),r,s:s.speed+rnd(40,180),rot:rnd(0,6.28),vr:rnd(-2,2)})}
+        function spawnPick(type){const map={crystal:"#ffd166",heal:"#62f2a2",pulse:"#8df7ff"};s.pickups.push({type,x:c.width+25,y:rnd(50,c.height-50),r:type==="crystal"?13:15,s:s.speed+120,a:0,color:map[type]})}
+        function wave(){if(!s.run||s.pulse<35)return;s.pulse-=35;s.waves.push({x:s.ship.x+16,y:s.ship.y,r:8,v:520,a:1});part(s.ship.x,s.ship.y,"#8df7ff",16,90)}
+        function over(){s.run=false;if(s.score>bestState.value){bestState.value=Math.floor(s.score);localStorage.setItem(key,bestState.value)}hud();ovTitle.textContent="Game Over";ovText.textContent=`Hisob: ${Math.floor(s.score)}. Yana urinib rekordni sindiring.`;startBtn.textContent="Qayta boshlash";overlay.classList.remove("hidden")}
+        function bg(dt){let g=x.createLinearGradient(0,0,0,c.height);g.addColorStop(0,"#07111f");g.addColorStop(.6,"#0a1930");g.addColorStop(1,"#020611");x.fillStyle=g;x.fillRect(0,0,c.width,c.height);for(const st of s.stars){st.x-=st.v*dt;if(st.x<-4){st.x=c.width+rnd(0,100);st.y=rnd(0,c.height)}x.fillStyle=`rgba(255,255,255,${.35+st.z*.18})`;x.fillRect(st.x,st.y,st.z,st.z)}x.fillStyle="rgba(141,247,255,.07)";x.beginPath();x.arc(c.width*.72,c.height*.18,130,0,6.28);x.fill()}
+        function drawShip(){let p=s.ship;x.save();x.translate(p.x,p.y);x.rotate(clamp(p.vy/14,-.45,.45));if(p.boost){x.fillStyle="rgba(255,183,3,.92)";x.beginPath();x.moveTo(-p.r-18,0);x.lineTo(-p.r-42,-10);x.lineTo(-p.r-42,10);x.closePath();x.fill()}x.fillStyle="#e5f3ff";x.beginPath();x.moveTo(p.r+14,0);x.lineTo(-p.r+6,-p.r*.92);x.lineTo(-p.r*.85,0);x.lineTo(-p.r+6,p.r*.92);x.closePath();x.fill();x.fillStyle="#8df7ff";x.beginPath();x.moveTo(10,0);x.lineTo(-16,-10);x.lineTo(-10,0);x.lineTo(-16,10);x.closePath();x.fill();x.fillStyle="#07111f";x.beginPath();x.arc(6,0,6,0,6.28);x.fill();x.restore()}
+        function drawHaz(o){x.save();x.translate(o.x,o.y);x.rotate(o.rot);let g=x.createRadialGradient(-5,-6,5,0,0,o.r);g.addColorStop(0,"#ffe29a");g.addColorStop(.5,"#ff7b54");g.addColorStop(1,"#832232");x.fillStyle=g;x.beginPath();for(let i=0;i<7;i++){let a=6.28*i/7,r=o.r+(i%2?o.r*.25:0),px=Math.cos(a)*r,py=Math.sin(a)*r;i?x.lineTo(px,py):x.moveTo(px,py)}x.closePath();x.fill();x.restore()}
+        function drawPick(o){x.save();x.translate(o.x,o.y);x.rotate(o.a);x.shadowBlur=18;x.shadowColor=o.color;x.fillStyle=o.color;if(o.type==="crystal"){x.beginPath();x.moveTo(0,-o.r);x.lineTo(o.r*.7,0);x.lineTo(0,o.r);x.lineTo(-o.r*.7,0);x.closePath();x.fill()}else{x.beginPath();x.arc(0,0,o.r,0,6.28);x.fill();x.fillStyle="#07111f";x.font="bold 14px sans-serif";x.textAlign="center";x.textBaseline="middle";x.fillText(o.type==="heal"?"+":"P",0,1)}x.restore()}
+        function drawParts(dt){for(let i=s.parts.length-1;i>=0;i--){let p=s.parts[i];p.x+=p.vx*dt;p.y+=p.vy*dt;p.life-=dt;if(p.life<=0){s.parts.splice(i,1);continue}x.globalAlpha=p.life;x.fillStyle=p.color;x.beginPath();x.arc(p.x,p.y,p.size,0,6.28);x.fill();x.globalAlpha=1}}
+        function drawWaves(dt){for(let i=s.waves.length-1;i>=0;i--){let w=s.waves[i];w.x+=w.v*dt;w.r+=180*dt;w.a-=.85*dt;x.strokeStyle=`rgba(141,247,255,${Math.max(0,w.a)})`;x.lineWidth=4;x.beginPath();x.arc(w.x,w.y,w.r,0,6.28);x.stroke();if(w.a<=0||w.x-w.r>c.width+40)s.waves.splice(i,1)}}
+        function ui(){let w=180,bx=c.width-w-24,by=18;x.fillStyle="rgba(255,255,255,.08)";x.fillRect(bx,by,w,12);x.fillStyle="#62f2a2";x.fillRect(bx,by,w*(s.health/100),12);x.fillStyle="rgba(255,255,255,.08)";x.fillRect(bx,by+18,w,10);x.fillStyle="#8df7ff";x.fillRect(bx,by+18,w*(s.pulse/100),10);x.fillStyle="#dce8f5";x.font="12px sans-serif";x.fillText("Health",bx,by-5);x.fillText("Pulse",bx,by+31)}
+        function update(dt){
+            s.dist+=dt;s.speed=Math.min(780,s.speed+dt*7);s.flash=Math.max(0,s.flash-dt*2.4);s.pulse=Math.min(100,s.pulse+dt*8);s.comboT>0?s.comboT-=dt:s.combo=Math.max(1,s.combo-dt*.9);
+            let p=s.ship;p.vy+=(p.boost?-980:760)*dt;p.vy*=.992;p.y+=p.vy*dt;if(p.y<p.r+18){p.y=p.r+18;p.vy=0}if(p.y>c.height-p.r-18){p.y=c.height-p.r-18;p.vy=0;s.health-=26*dt}
+            s.spawn-=dt;if(s.spawn<=0){spawnHaz();s.spawn=Math.max(.24,.78-s.dist*.012)} s.pick-=dt;if(s.pick<=0){spawnPick("crystal");s.pick=Math.max(.55,1.8-s.dist*.015)} s.supply-=dt;if(s.supply<=0){spawnPick(Math.random()>.55?"pulse":"heal");s.supply=6.4}
+            for(let i=s.haz.length-1;i>=0;i--){let o=s.haz[i];o.x-=o.s*dt;o.rot+=o.vr*dt;if(col(p,o)){s.health-=24;s.combo=1;s.comboT=0;s.flash=.8;part(o.x,o.y,"#ff5d73",18,120);s.haz.splice(i,1);continue}let dead=false;for(let j=s.waves.length-1;j>=0;j--){let w=s.waves[j],edge=Math.abs(Math.hypot(o.x-w.x,o.y-w.y)-w.r);if(edge<o.r+10){s.score+=14;s.combo=Math.min(8,s.combo+.22);s.comboT=2.4;part(o.x,o.y,"#8df7ff",12,140);s.haz.splice(i,1);dead=true;break}} if(dead)continue; if(o.x<-80){s.score+=3;s.haz.splice(i,1)}}
+            for(let i=s.pickups.length-1;i>=0;i--){let o=s.pickups[i];o.x-=o.s*dt;o.a+=dt*2.4;if(col(p,o)){if(o.type==="crystal"){s.score+=10*s.combo;s.combo=Math.min(8,s.combo+.28);s.comboT=3.3}else if(o.type==="heal"){s.health=Math.min(100,s.health+24)}else{s.pulse=Math.min(100,s.pulse+45)}part(o.x,o.y,o.color,14,90);s.pickups.splice(i,1);continue}if(o.x<-40)s.pickups.splice(i,1)}
+            s.score+=dt*(2+s.combo*.7); if(s.health<=0)over()
+        }
+        function render(dt){
+            bg(dt);drawWaves(dt);for(const o of s.pickups)drawPick(o);for(const o of s.haz)drawHaz(o);drawShip();drawParts(dt);ui();if(s.flash>0){x.fillStyle=`rgba(255,93,115,${s.flash*.22})`;x.fillRect(0,0,c.width,c.height)}
+        }
+        function loop(t){if(!s.run)return;const dt=Math.min(.033,(t-(s.last||t))/1000);s.last=t;update(dt);render(dt);hud();if(s.run)requestAnimationFrame(loop)}
+        function press(e){if(e)e.preventDefault();if(!s.run)start();s.ship.boost=true} function release(e){if(e)e.preventDefault();s.ship.boost=false}
+        startBtn.addEventListener("click",start); [c,boostBtn].forEach(el=>{if(!el)return;el.addEventListener("mousedown",press);el.addEventListener("mouseup",release);el.addEventListener("mouseleave",release);el.addEventListener("touchstart",press,{passive:false});el.addEventListener("touchend",release,{passive:false})}); pulseBtn.addEventListener("click",wave);
+        window.addEventListener("keydown",e=>{if(["Space","ArrowUp","KeyW"].includes(e.code)){e.preventDefault();if(!s.run)start();s.ship.boost=true} if(["ShiftLeft","ShiftRight","KeyS"].includes(e.code)){e.preventDefault();wave()}});
+        window.addEventListener("keyup",e=>{if(["Space","ArrowUp","KeyW"].includes(e.code)){e.preventDefault();s.ship.boost=false}});
+        stars();render(.016);hud();
+    </script>
+</body>
+</html>

@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Orbit Tap</title>
+    <style>
+        :root{--bg:#08121b;--bg2:#11283a;--panel:rgba(7,18,27,.82);--line:rgba(255,255,255,.08);--text:#f4fbff;--muted:#abc0d4;--cyan:#7bdff2;--gold:#ffd166;--red:#ff5d73}
+        *{box-sizing:border-box} body{margin:0;min-height:100vh;padding:18px;display:grid;place-items:center;color:var(--text);font-family:"Segoe UI",sans-serif;background:radial-gradient(circle at top,rgba(123,223,242,.16),transparent 24%),linear-gradient(160deg,var(--bg),var(--bg2) 58%,#04080d)}
+        .shell{width:min(1050px,100%);display:grid;grid-template-columns:1fr 320px;gap:18px}.panel{background:var(--panel);border:1px solid var(--line);border-radius:28px;box-shadow:0 24px 60px rgba(0,0,0,.32)}
+        .game{padding:18px}.side{padding:22px;display:grid;gap:16px;align-content:start}.lab{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--cyan)} h1{margin:0;font:700 clamp(32px,5vw,62px)/.94 Georgia,serif}.msg{margin:0;color:var(--muted);line-height:1.55}
+        canvas{display:block;width:100%;height:auto;border-radius:22px;border:1px solid var(--line);background:linear-gradient(180deg,#09131c,#040910)} .stat{padding:16px;border-radius:18px;border:1px solid var(--line);background:rgba(255,255,255,.03)} .num{font-size:34px;font-weight:800}
+        .btn{border:0;border-radius:999px;padding:13px 18px;font-weight:800;cursor:pointer;text-decoration:none;text-align:center}.pri{background:linear-gradient(135deg,var(--cyan),var(--gold));color:#07111f}.ghost{background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--text)}
+        @media (max-width:900px){.shell{grid-template-columns:1fr}}
+    </style>
+</head>
+<body>
+    <div class="shell">
+        <section class="panel game">
+            <canvas id="game" width="760" height="620"></canvas>
+        </section>
+        <aside class="panel side">
+            <div class="lab">Timing Game</div>
+            <h1>Orbit Tap</h1>
+            <p class="msg" id="message">Orb markaz atrofida aylanadi. U oltin halqa ustidan o'tganda bosing.</p>
+            <div class="stat"><div class="lab">Score</div><div class="num" id="score">0</div></div>
+            <div class="stat"><div class="lab">Best</div><div class="num" id="best">0</div></div>
+            <div class="stat"><div class="lab">Streak</div><div class="num" id="streak">0</div></div>
+            <button class="btn pri" id="startBtn">Start / Restart</button>
+            <a class="btn ghost" href="{% url 'home' %}">Asosiy sahifa</a>
+            <a class="btn ghost" href="{% url 'game_lanes' %}">Lane Escape Nitro</a>
+        </aside>
+    </div>
+    <script>
+        const c=document.getElementById("game"),x=c.getContext("2d"),scoreEl=document.getElementById("score"),bestEl=document.getElementById("best"),streakEl=document.getElementById("streak"),messageEl=document.getElementById("message"),startBtn=document.getElementById("startBtn");
+        const key="orbit-tap-best"; let best=Number(localStorage.getItem(key)||0),run=false,score=0,streak=0,angle=0,speed=1.8,target=.6,ring=170,flash=0,particles=[];
+        bestEl.textContent=best;
+        function hud(){scoreEl.textContent=score;bestEl.textContent=best;streakEl.textContent=streak}
+        function spawn(color){for(let i=0;i<18;i++){const a=Math.random()*Math.PI*2,v=Math.random()*140+40;particles.push({x:c.width/2+Math.cos(angle)*ring,y:c.height/2+Math.sin(angle)*ring,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life:Math.random()*.6+.3,size:Math.random()*4+2,color})}}
+        function reset(){run=true;score=0;streak=0;angle=0;speed=1.8;target=Math.random()*Math.PI*2;flash=0;particles=[];messageEl.textContent="Halqa bilan orbni to'g'ri tekislang.";hud();requestAnimationFrame(loop)}
+        function tap(){
+            if(!run){reset();return}
+            const diff=Math.abs(Math.atan2(Math.sin(angle-target),Math.cos(angle-target)));
+            if(diff<.24){score+=1;streak+=1;speed=Math.min(4.8,speed+.12);target=Math.random()*Math.PI*2;flash=.8;spawn("#ffd166");messageEl.textContent=streak>0&&streak%5===0?"Combo ketmoqda. Zo'r timing.":"Perfect tap."}
+            else{run=false;if(score>best){best=score;localStorage.setItem(key,String(best))}spawn("#ff5d73");messageEl.textContent=`Timing xato. Natija: ${score}. Qayta urinib ko'ring.`}
+            hud()
+        }
+        function draw(){
+            const g=x.createRadialGradient(c.width/2,c.height/2,20,c.width/2,c.height/2,320);g.addColorStop(0,"#10283a");g.addColorStop(1,"#040910");x.fillStyle=g;x.fillRect(0,0,c.width,c.height);
+            for(let i=0;i<60;i++){x.fillStyle=`rgba(255,255,255,${.08+(i%3)*.04})`;x.fillRect((i*97)%c.width,(i*53)%c.height,2,2)}
+            x.strokeStyle="rgba(123,223,242,.16)";x.lineWidth=26;x.beginPath();x.arc(c.width/2,c.height/2,ring,0,Math.PI*2);x.stroke();
+            x.strokeStyle="#ffd166";x.lineWidth=24;x.beginPath();x.arc(c.width/2,c.height/2,ring,target-.18,target+.18);x.stroke();
+            x.fillStyle="#7bdff2";x.beginPath();x.arc(c.width/2,c.height/2,18,0,Math.PI*2);x.fill();
+            const ox=c.width/2+Math.cos(angle)*ring,oy=c.height/2+Math.sin(angle)*ring;
+            x.shadowBlur=22;x.shadowColor="#7bdff2";x.fillStyle="#7bdff2";x.beginPath();x.arc(ox,oy,16,0,Math.PI*2);x.fill();x.shadowBlur=0;
+            for(let i=particles.length-1;i>=0;i--){const p=particles[i];p.x+=p.vx*.016;p.y+=p.vy*.016;p.life-=.016;if(p.life<=0){particles.splice(i,1);continue}x.globalAlpha=p.life;x.fillStyle=p.color;x.beginPath();x.arc(p.x,p.y,p.size,0,Math.PI*2);x.fill();x.globalAlpha=1}
+            if(flash>0){flash=Math.max(0,flash-.03);x.fillStyle=`rgba(255,209,102,${flash*.18})`;x.fillRect(0,0,c.width,c.height)}
+        }
+        function loop(){draw(); if(run){angle+=speed*.03; requestAnimationFrame(loop)}}
+        startBtn.addEventListener("click",reset); window.addEventListener("keydown",e=>{if(e.code==="Space"){e.preventDefault();tap()}}); c.addEventListener("click",tap); draw(); hud();
+    </script>
+</body>
+</html>

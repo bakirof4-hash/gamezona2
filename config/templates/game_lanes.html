@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lane Escape Nitro</title>
+    <style>
+        :root{--bg:#090912;--bg2:#190e2f;--panel:rgba(9,12,23,.8);--line:rgba(255,255,255,.08);--text:#f7fbff;--muted:#b7c6d9;--pink:#ff2f92;--blue:#4cc9f0;--gold:#ffd166;--green:#62f2a2}
+        *{box-sizing:border-box} body{margin:0;min-height:100vh;padding:16px;color:var(--text);font-family:"Segoe UI",sans-serif;display:grid;place-items:center;background:radial-gradient(circle at top,rgba(255,47,146,.18),transparent 24%),radial-gradient(circle at 80% 0,rgba(76,201,240,.15),transparent 20%),linear-gradient(160deg,var(--bg),var(--bg2) 60%,#05070d)}
+        .shell{width:min(1120px,100%);display:grid;grid-template-columns:1.08fr .92fr;gap:18px}.panel{background:var(--panel);border:1px solid var(--line);border-radius:28px;box-shadow:0 28px 70px rgba(0,0,0,.34);backdrop-filter:blur(14px)}
+        .game{padding:18px}.side{padding:24px;display:grid;align-content:start;gap:16px}.lab{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--blue)} h1{margin:0;font:700 clamp(34px,5vw,68px)/.93 Georgia,serif}
+        .msg,.txt{margin:0;color:var(--muted);line-height:1.55}.hud{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px}.stat{padding:14px 16px;border-radius:18px;border:1px solid var(--line);background:rgba(255,255,255,.03)}.num{font-size:28px;font-weight:800}
+        canvas{display:block;width:100%;height:auto;border-radius:22px;border:1px solid var(--line);background:linear-gradient(180deg,#130d22,#060910)}.mobile{display:none;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:12px}
+        .btn{border:0;border-radius:999px;padding:13px 18px;font-weight:800;cursor:pointer;text-decoration:none;text-align:center}.pri{background:linear-gradient(135deg,var(--pink),#ff7b00);color:white}.ghost{background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--text)}
+        .box{padding:16px;border-radius:18px;border:1px solid var(--line);background:rgba(255,255,255,.03)} .title{font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--gold);margin-bottom:8px}
+        .row{display:flex;align-items:center;justify-content:space-between;gap:10px;color:var(--muted);margin-top:8px}.pill{padding:6px 10px;border-radius:999px;background:rgba(255,255,255,.07);font-size:12px}
+        @media (max-width:980px){.shell{grid-template-columns:1fr}.mobile{display:grid}} @media (max-width:720px){.hud{grid-template-columns:repeat(2,1fr)}.side{padding:18px}}
+    </style>
+</head>
+<body>
+    <div class="shell">
+        <section class="panel game">
+            <div class="hud">
+                <div class="stat"><div class="lab">Score</div><div class="num" id="score">0</div></div>
+                <div class="stat"><div class="lab">Best</div><div class="num" id="best">0</div></div>
+                <div class="stat"><div class="lab">Nitro</div><div class="num" id="speed">1.0x</div></div>
+                <div class="stat"><div class="lab">Shield</div><div class="num" id="shield">1</div></div>
+            </div>
+            <canvas id="game" width="760" height="620"></canvas>
+            <div class="mobile">
+                <button class="btn ghost" id="leftBtn">Chap</button>
+                <button class="btn ghost" id="rightBtn">O'ng</button>
+            </div>
+        </section>
+        <aside class="panel side">
+            <div class="lab">Neon Highway</div>
+            <h1>Lane Escape Nitro</h1>
+            <p class="msg" id="message">Mashinani neon trassada olib qoching. Dastlab 1 ta shield bor, bitta urilishni yutadi.</p>
+            <div class="box">
+                <div class="title">Boshqaruv</div>
+                <p class="txt">`ArrowLeft`, `ArrowRight`, `A`, `D` yoki pastdagi mobil tugmalar. `Space` bilan start.</p>
+            </div>
+            <div class="box">
+                <div class="title">Rejim</div>
+                <div class="row"><span>Har o‘tgan mashina</span><span class="pill">+1 score</span></div>
+                <div class="row"><span>Har 8 ochko</span><span class="pill">tezlik oshadi</span></div>
+                <div class="row"><span>1 ta shield</span><span class="pill">bir urilishdan saqlaydi</span></div>
+            </div>
+            <button class="btn pri" id="startBtn">Start / Restart</button>
+            <a class="btn ghost" href="{% url 'home' %}">Asosiy sahifa</a>
+            <a class="btn ghost" href="{% url 'game_orbit' %}">Orbit Tap</a>
+        </aside>
+    </div>
+    <script>
+        const canvas=document.getElementById("game"),ctx=canvas.getContext("2d"),scoreEl=document.getElementById("score"),bestEl=document.getElementById("best"),speedEl=document.getElementById("speed"),shieldEl=document.getElementById("shield"),messageEl=document.getElementById("message"),startBtn=document.getElementById("startBtn"),leftBtn=document.getElementById("leftBtn"),rightBtn=document.getElementById("rightBtn");
+        const lanes=[190,380,570],key="lane-escape-nitro-best"; let best=Number(localStorage.getItem(key)||0),run=false,score=0,speed=290,last=0,spawn=0,shield=1,flash=0,road=0,stars=[],enemies=[],particles=[];
+        const player={lane:1,targetX:lanes[1],x:lanes[1],y:500,w:82,h:132,color:"#4cc9f0"};
+        bestEl.textContent=best; stars=Array.from({length:60},()=>({x:Math.random()*canvas.width,y:Math.random()*canvas.height,s:Math.random()*2+1,v:Math.random()*80+20}));
+        const rand=(a,b)=>Math.random()*(b-a)+a;
+        function hud(){scoreEl.textContent=score;bestEl.textContent=best;speedEl.textContent=`${(speed/290).toFixed(1)}x`;shieldEl.textContent=shield}
+        function burst(x,y,color,n){for(let i=0;i<n;i++){const a=Math.random()*Math.PI*2,v=rand(50,180);particles.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life:rand(.3,.8),size:rand(2,5),color})}}
+        function reset(){run=true;score=0;speed=290;last=0;spawn=.6;shield=1;flash=0;road=0;enemies=[];particles=[];player.lane=1;player.targetX=lanes[1];player.x=lanes[1];messageEl.textContent="Nitro yoqildi. Oqartirilgan neon yo'lda tirik qoling.";hud();requestAnimationFrame(loop)}
+        function move(dir){if(!run)return;player.lane=Math.max(0,Math.min(2,player.lane+dir));player.targetX=lanes[player.lane]}
+        function enemy(){const palette=["#ff2f92","#ff7b00","#8338ec","#f72585"];enemies.push({lane:Math.floor(Math.random()*3),y:-160,w:80,h:128,color:palette[Math.floor(Math.random()*palette.length)],glow:Math.random()>.5})}
+        function drawCity(){
+            const g=ctx.createLinearGradient(0,0,0,canvas.height);g.addColorStop(0,"#180f2f");g.addColorStop(.45,"#0b1120");g.addColorStop(1,"#04060c");ctx.fillStyle=g;ctx.fillRect(0,0,canvas.width,canvas.height);
+            for(const s of stars){s.y+=s.v*0.02;if(s.y>canvas.height){s.y=-4;s.x=Math.random()*canvas.width}ctx.fillStyle=`rgba(255,255,255,${.35+s.s*.1})`;ctx.fillRect(s.x,s.y,s.s,s.s)}
+            ctx.fillStyle="rgba(118,75,162,.18)"; for(let i=0;i<7;i++){const x=30+i*110,h=140+((i%3)*60);ctx.fillRect(x,canvas.height-h-90,70,h)}
+            ctx.fillStyle="rgba(76,201,240,.1)"; for(let i=0;i<6;i++){const x=70+i*120,h=120+((i%2)*90);ctx.fillRect(x,canvas.height-h-80,55,h)}
+        }
+        function drawRoad(){
+            road=(road+speed*0.016)%80;
+            ctx.fillStyle="#0a0d14";ctx.fillRect(115,0,530,canvas.height);
+            ctx.strokeStyle="rgba(255,255,255,.12)";ctx.lineWidth=8;ctx.strokeRect(115,0,530,canvas.height);
+            ctx.strokeStyle="rgba(255,47,146,.22)";ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(115,0);ctx.lineTo(115,canvas.height);ctx.moveTo(645,0);ctx.lineTo(645,canvas.height);ctx.stroke();
+            ctx.strokeStyle="rgba(255,255,255,.32)";ctx.lineWidth=6;ctx.setLineDash([40,24]);ctx.lineDashOffset=road;ctx.beginPath();ctx.moveTo(293,0);ctx.lineTo(293,canvas.height);ctx.moveTo(467,0);ctx.lineTo(467,canvas.height);ctx.stroke();ctx.setLineDash([]);
+            ctx.fillStyle="rgba(255,209,102,.15)";ctx.fillRect(105,0,10,canvas.height);ctx.fillRect(645,0,10,canvas.height);
+        }
+        function car(x,y,color,playerCar){
+            ctx.save();ctx.translate(x,y);
+            ctx.shadowBlur=playerCar?26:18;ctx.shadowColor=color;ctx.fillStyle=color;
+            ctx.beginPath();ctx.roundRect(-38,-62,76,124,20);ctx.fill();
+            ctx.fillStyle="rgba(8,12,20,.95)";ctx.beginPath();ctx.roundRect(-24,-42,48,30,10);ctx.fill();
+            ctx.fillStyle=playerCar?"#ffd166":"#fff3b0";ctx.fillRect(-24,-62,16,10);ctx.fillRect(8,-62,16,10);
+            ctx.fillStyle="#0d1118";ctx.fillRect(-42,-45,8,28);ctx.fillRect(34,-45,8,28);ctx.fillRect(-42,18,8,28);ctx.fillRect(34,18,8,28);
+            if(playerCar&&shield>0){ctx.strokeStyle="rgba(98,242,162,.75)";ctx.lineWidth=4;ctx.beginPath();ctx.arc(0,0,62,0,Math.PI*2);ctx.stroke()}
+            ctx.restore();
+        }
+        function end(hit){if(hit&&shield>0){shield=0;flash=.7;messageEl.textContent="Shield ishladi. Keyingi urilish final.";burst(player.x,player.y,"#62f2a2",22);hud();return} run=false;if(score>best){best=score;localStorage.setItem(key,String(best))}hud();messageEl.textContent=`Crash. Natija: ${score}. Space yoki Start bilan qayta boshlang.`}
+        function parts(dt){for(let i=particles.length-1;i>=0;i--){const p=particles[i];p.x+=p.vx*dt;p.y+=p.vy*dt;p.life-=dt;if(p.life<=0){particles.splice(i,1);continue}ctx.globalAlpha=p.life;ctx.fillStyle=p.color;ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1}}
+        function loop(t){
+            if(!run)return; const dt=Math.min(.033,(t-(last||t))/1000); last=t; speed=Math.min(760,speed+dt*(7+score*.06)); spawn-=dt; if(spawn<=0){enemy(); spawn=Math.max(.28,.78-score*.01)}
+            player.x+=(player.targetX-player.x)*Math.min(1,dt*14); drawCity(); drawRoad(); car(player.x,player.y,player.color,true);
+            for(let i=enemies.length-1;i>=0;i--){const e=enemies[i];e.y+=speed*dt; car(lanes[e.lane],e.y,e.color,false);
+                const laneHit=Math.abs(lanes[e.lane]-player.x)<46, yHit=e.y+e.h/2>player.y-player.h/2&&e.y-e.h/2<player.y+player.h/2;
+                if(laneHit&&yHit){burst(lanes[e.lane],e.y,e.color,26);enemies.splice(i,1);end(true);if(!run)return;continue}
+                if(e.y>canvas.height+150){enemies.splice(i,1);score+=1;if(score>0&&score%8===0){messageEl.textContent="Nitro oshdi. Oqartirilgan chiziqlar tezlashdi."} hud()}
+            }
+            parts(dt); if(flash>0){flash=Math.max(0,flash-dt*1.8);ctx.fillStyle=`rgba(98,242,162,${flash*.25})`;ctx.fillRect(0,0,canvas.width,canvas.height)}
+            requestAnimationFrame(loop)
+        }
+        startBtn.addEventListener("click",reset); leftBtn.addEventListener("click",()=>move(-1)); rightBtn.addEventListener("click",()=>move(1));
+        window.addEventListener("keydown",e=>{if(["ArrowLeft","KeyA"].includes(e.code))move(-1); if(["ArrowRight","KeyD"].includes(e.code))move(1); if(!run&&e.code==="Space")reset()});
+        drawCity(); drawRoad(); car(player.x,player.y,player.color,true); hud();
+    </script>
+</body>
+</html>

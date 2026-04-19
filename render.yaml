@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: dsju-games
+    env: python
+    plan: free
+    rootDir: config
+    buildCommand: bash build.sh
+    startCommand: gunicorn config.wsgi:application
+    envVars:
+      - key: DEBUG
+        value: "False"
+      - key: SECRET_KEY
+        generateValue: true
