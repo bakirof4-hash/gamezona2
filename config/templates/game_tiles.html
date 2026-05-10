@@ -29,7 +29,12 @@
         .btn { border:0; border-radius:999px; padding:13px 18px; font-weight:800; cursor:pointer; }
         .primary { background:linear-gradient(135deg,#5eead4,#ffd166); color:#07111f; }
         .ghost { color:var(--text); text-decoration:none; text-align:center; background:rgba(255,255,255,.06); border:1px solid var(--line); }
-        @media (max-width:860px) { .shell { grid-template-columns:1fr; } .tile { height:160px; } }
+        .mobile { display:none; grid-template-columns:minmax(0,150px) minmax(0,1fr); gap:12px; margin-top:16px; align-items:end; }
+        .stick { position:relative; width:140px; height:140px; border-radius:50%; border:1px solid rgba(255,255,255,.12); background:radial-gradient(circle,rgba(255,255,255,.12),rgba(255,255,255,.03)); touch-action:none; }
+        .knob { position:absolute; left:50%; top:50%; width:58px; height:58px; border-radius:50%; transform:translate(-50%,-50%); background:linear-gradient(135deg,#5eead4,#4cc9f0); box-shadow:0 10px 24px rgba(0,0,0,.35); }
+        .mobile-actions { display:grid; gap:10px; }
+        .tile.selected { box-shadow:0 0 0 4px rgba(255,255,255,.22), 0 0 22px rgba(94,234,212,.45); }
+        @media (max-width:860px) { .shell { grid-template-columns:1fr; } .tile { height:160px; } .mobile { display:grid; } }
     </style>
 </head>
 <body>
@@ -43,6 +48,15 @@
                 <button class="tile t2" data-tile="1"></button>
                 <button class="tile t3" data-tile="2"></button>
                 <button class="tile t4" data-tile="3"></button>
+            </div>
+            <div class="mobile">
+                <div class="stick" id="tileStick" aria-label="Tile joystick">
+                    <div class="knob" id="tileKnob"></div>
+                </div>
+                <div class="mobile-actions">
+                    <button class="btn primary" id="selectBtn">Tanlash</button>
+                    <div class="msg">Joystick bilan katak tanlang, keyin `Tanlash` bosing.</div>
+                </div>
             </div>
         </section>
         <aside class="panel side">
@@ -64,15 +78,23 @@
         const roundEl = document.getElementById("round");
         const bestEl = document.getElementById("best");
         const startBtn = document.getElementById("startBtn");
+        const selectBtn = document.getElementById("selectBtn");
+        const tileStick = document.getElementById("tileStick");
+        const tileKnob = document.getElementById("tileKnob");
         const key = "flash-tiles-best";
         let best = Number(localStorage.getItem(key) || 0);
         let sequence = [];
         let userIndex = 0;
         let locked = true;
+        let selectedTile = 0;
+        const stickState = {active:false,pointerId:null,moved:false};
 
         bestEl.textContent = best;
 
         const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+        function syncSelection() {
+            tiles.forEach((tile, index) => tile.classList.toggle("selected", index === selectedTile));
+        }
 
         async function flash(index) {
             const tile = tiles[index];
@@ -105,9 +127,11 @@
             sequence = [];
             userIndex = 0;
             locked = true;
+            selectedTile = 0;
             roundEl.textContent = "0";
             messageEl.textContent = "Tayyor bo'ling...";
             statusEl.textContent = "Boshlanmoqda";
+            syncSelection();
             await wait(450);
             await nextRound();
         }
@@ -142,6 +166,52 @@
             tile.addEventListener("click", () => handleTile(Number(tile.dataset.tile)));
         });
         startBtn.addEventListener("click", startGame);
+        selectBtn.addEventListener("click", () => handleTile(selectedTile));
+        function moveSelection(dx, dy) {
+            const row = Math.floor(selectedTile / 2);
+            const col = selectedTile % 2;
+            const nextRow = Math.max(0, Math.min(1, row + dy));
+            const nextCol = Math.max(0, Math.min(1, col + dx));
+            selectedTile = nextRow * 2 + nextCol;
+            syncSelection();
+        }
+        function resetTileStick() {
+            stickState.active = false;
+            stickState.pointerId = null;
+            stickState.moved = false;
+            tileKnob.style.transform = "translate(-50%,-50%)";
+        }
+        function handleTileStick(clientX, clientY) {
+            const rect = tileStick.getBoundingClientRect();
+            const cx = rect.left + rect.width / 2;
+            const cy = rect.top + rect.height / 2;
+            const dx = clientX - cx;
+            const dy = clientY - cy;
+            const radius = rect.width * 0.28;
+            const mag = Math.hypot(dx, dy) || 1;
+            const limited = Math.min(radius, mag);
+            tileKnob.style.transform = `translate(calc(-50% + ${dx / mag * limited}px), calc(-50% + ${dy / mag * limited}px))`;
+            if (!stickState.moved && mag > radius * 1.2) {
+                if (Math.abs(dx) > Math.abs(dy)) moveSelection(dx > 0 ? 1 : -1, 0);
+                else moveSelection(0, dy > 0 ? 1 : -1);
+                stickState.moved = true;
+            }
+        }
+        tileStick.addEventListener("pointerdown", (event) => {
+            stickState.active = true;
+            stickState.pointerId = event.pointerId;
+            stickState.moved = false;
+            tileStick.setPointerCapture(event.pointerId);
+            handleTileStick(event.clientX, event.clientY);
+        });
+        tileStick.addEventListener("pointermove", (event) => {
+            if (stickState.active && stickState.pointerId === event.pointerId) handleTileStick(event.clientX, event.clientY);
+        });
+        tileStick.addEventListener("pointerup", (event) => {
+            if (stickState.pointerId === event.pointerId) resetTileStick();
+        });
+        tileStick.addEventListener("pointercancel", resetTileStick);
+        syncSelection();
     </script>
 </body>
 </html>

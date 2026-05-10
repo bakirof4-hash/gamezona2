@@ -10,7 +10,10 @@
         .shell{width:min(1480px,100%);display:grid;grid-template-columns:minmax(0,1.45fr) 360px;gap:18px}.panel{background:var(--panel);border:1px solid var(--line);border-radius:28px;box-shadow:0 28px 70px rgba(0,0,0,.34);backdrop-filter:blur(14px)}
         .game{padding:18px}.side{padding:24px;display:grid;align-content:start;gap:16px}.lab{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--blue)} h1{margin:0;font:700 clamp(34px,5vw,68px)/.93 Georgia,serif}
         .msg,.txt{margin:0;color:var(--muted);line-height:1.55}.hud{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px}.stat{padding:14px 16px;border-radius:18px;border:1px solid var(--line);background:rgba(255,255,255,.03)}.num{font-size:28px;font-weight:800}
-        canvas{display:block;width:100%;height:auto;aspect-ratio:16/9;border-radius:22px;border:1px solid var(--line);background:linear-gradient(180deg,#130d22,#060910)}.mobile{display:none;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:12px}
+        canvas{display:block;width:100%;height:auto;aspect-ratio:16/9;border-radius:22px;border:1px solid var(--line);background:linear-gradient(180deg,#130d22,#060910)}.mobile{display:none;grid-template-columns:minmax(0,170px) minmax(0,1fr);gap:12px;align-items:end;margin-top:12px}
+        .stick{position:relative;width:150px;height:150px;border-radius:50%;border:1px solid rgba(255,255,255,.12);background:radial-gradient(circle,rgba(255,255,255,.12),rgba(255,255,255,.04) 65%,rgba(255,255,255,.02));touch-action:none}
+        .knob{position:absolute;left:50%;top:50%;width:64px;height:64px;border-radius:50%;transform:translate(-50%,-50%);background:linear-gradient(135deg,rgba(76,201,240,.95),rgba(255,47,146,.9));box-shadow:0 12px 30px rgba(0,0,0,.35)}
+        .mobile-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
         .btn{border:0;border-radius:999px;padding:13px 18px;font-weight:800;cursor:pointer;text-decoration:none;text-align:center}.pri{background:linear-gradient(135deg,var(--pink),#ff7b00);color:white}.ghost{background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--text)}
         .box{padding:16px;border-radius:18px;border:1px solid var(--line);background:rgba(255,255,255,.03)} .title{font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--gold);margin-bottom:8px}
         .row{display:flex;align-items:center;justify-content:space-between;gap:10px;color:var(--muted);margin-top:8px}.pill{padding:6px 10px;border-radius:999px;background:rgba(255,255,255,.07);font-size:12px}
@@ -28,8 +31,13 @@
             </div>
             <canvas id="game" width="1280" height="720"></canvas>
             <div class="mobile">
-                <button class="btn ghost" id="leftBtn">Chap</button>
-                <button class="btn ghost" id="rightBtn">O'ng</button>
+                <div class="stick" id="laneStick" aria-label="Harakat joystick">
+                    <div class="knob" id="laneKnob"></div>
+                </div>
+                <div class="mobile-actions">
+                    <button class="btn ghost" id="leftBtn">Chap</button>
+                    <button class="btn ghost" id="rightBtn">O'ng</button>
+                </div>
             </div>
         </section>
         <aside class="panel side">
@@ -52,9 +60,10 @@
         </aside>
     </div>
     <script>
-        const canvas=document.getElementById("game"),ctx=canvas.getContext("2d"),scoreEl=document.getElementById("score"),bestEl=document.getElementById("best"),speedEl=document.getElementById("speed"),shieldEl=document.getElementById("shield"),messageEl=document.getElementById("message"),startBtn=document.getElementById("startBtn"),leftBtn=document.getElementById("leftBtn"),rightBtn=document.getElementById("rightBtn");
+        const canvas=document.getElementById("game"),ctx=canvas.getContext("2d"),scoreEl=document.getElementById("score"),bestEl=document.getElementById("best"),speedEl=document.getElementById("speed"),shieldEl=document.getElementById("shield"),messageEl=document.getElementById("message"),startBtn=document.getElementById("startBtn"),leftBtn=document.getElementById("leftBtn"),rightBtn=document.getElementById("rightBtn"),laneStick=document.getElementById("laneStick"),laneKnob=document.getElementById("laneKnob");
         const lanes=[190,380,570],key="lane-escape-nitro-best"; let best=Number(localStorage.getItem(key)||0),run=false,score=0,speed=290,last=0,spawn=0,shield=1,flash=0,road=0,stars=[],enemies=[],particles=[];
         const player={lane:1,targetX:lanes[1],x:lanes[1],y:500,w:82,h:132,color:"#4cc9f0"};
+        const laneStickState={active:false,pointerId:null,moved:false};
         bestEl.textContent=best; stars=Array.from({length:60},()=>({x:Math.random()*canvas.width,y:Math.random()*canvas.height,s:Math.random()*2+1,v:Math.random()*80+20}));
         const rand=(a,b)=>Math.random()*(b-a)+a;
         function roundedRect(x,y,w,h,r){
@@ -72,6 +81,15 @@
         function burst(x,y,color,n){for(let i=0;i<n;i++){const a=Math.random()*Math.PI*2,v=rand(50,180);particles.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life:rand(.3,.8),size:rand(2,5),color})}}
         function reset(){run=true;score=0;speed=290;last=0;spawn=.6;shield=1;flash=0;road=0;enemies=[];particles=[];player.lane=1;player.targetX=lanes[1];player.x=lanes[1];messageEl.textContent="Nitro yoqildi. Oqartirilgan neon yo'lda tirik qoling.";hud();requestAnimationFrame(loop)}
         function move(dir){if(!run)return;player.lane=Math.max(0,Math.min(2,player.lane+dir));player.targetX=lanes[player.lane]}
+        function resetStick(){laneStickState.active=false;laneStickState.pointerId=null;laneStickState.moved=false;laneKnob.style.transform="translate(-50%,-50%)"}
+        function handleStick(clientX){
+            const rect=laneStick.getBoundingClientRect(),center=rect.left+rect.width/2,dx=clientX-center,radius=rect.width*.32,clamped=Math.max(-radius,Math.min(radius,dx));
+            laneKnob.style.transform=`translate(calc(-50% + ${clamped}px), -50%)`;
+            if(!laneStickState.moved&&Math.abs(clamped)>radius*.52){
+                move(clamped<0?-1:1);
+                laneStickState.moved=true;
+            }
+        }
         function enemy(){const palette=["#ff2f92","#ff7b00","#8338ec","#f72585"];enemies.push({lane:Math.floor(Math.random()*3),y:-160,w:80,h:128,color:palette[Math.floor(Math.random()*palette.length)],glow:Math.random()>.5})}
         function drawCity(){
             const g=ctx.createLinearGradient(0,0,0,canvas.height);g.addColorStop(0,"#180f2f");g.addColorStop(.45,"#0b1120");g.addColorStop(1,"#04060c");ctx.fillStyle=g;ctx.fillRect(0,0,canvas.width,canvas.height);
@@ -111,6 +129,10 @@
             requestAnimationFrame(loop)
         }
         startBtn.addEventListener("click",reset); leftBtn.addEventListener("click",()=>move(-1)); rightBtn.addEventListener("click",()=>move(1));
+        laneStick.addEventListener("pointerdown",e=>{laneStickState.active=true;laneStickState.pointerId=e.pointerId;laneStickState.moved=false;laneStick.setPointerCapture(e.pointerId);handleStick(e.clientX)});
+        laneStick.addEventListener("pointermove",e=>{if(laneStickState.active&&laneStickState.pointerId===e.pointerId)handleStick(e.clientX)});
+        laneStick.addEventListener("pointerup",e=>{if(laneStickState.pointerId===e.pointerId)resetStick()});
+        laneStick.addEventListener("pointercancel",resetStick);
         window.addEventListener("keydown",e=>{if(["ArrowLeft","KeyA"].includes(e.code))move(-1); if(["ArrowRight","KeyD"].includes(e.code))move(1); if(!run&&e.code==="Space")reset()});
         drawCity(); drawRoad(); car(player.x,player.y,player.color,true); hud();
     </script>

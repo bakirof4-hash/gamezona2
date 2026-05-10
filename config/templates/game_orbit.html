@@ -11,13 +11,20 @@
         .game{padding:18px}.side{padding:22px;display:grid;gap:16px;align-content:start}.lab{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--cyan)} h1{margin:0;font:700 clamp(32px,5vw,62px)/.94 Georgia,serif}.msg{margin:0;color:var(--muted);line-height:1.55}
         canvas{display:block;width:100%;height:auto;aspect-ratio:16/9;border-radius:22px;border:1px solid var(--line);background:linear-gradient(180deg,#09131c,#040910)} .stat{padding:16px;border-radius:18px;border:1px solid var(--line);background:rgba(255,255,255,.03)} .num{font-size:34px;font-weight:800}
         .btn{border:0;border-radius:999px;padding:13px 18px;font-weight:800;cursor:pointer;text-decoration:none;text-align:center}.pri{background:linear-gradient(135deg,var(--cyan),var(--gold));color:#07111f}.ghost{background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--text)}
-        @media (max-width:900px){.shell{grid-template-columns:1fr}}
+        .mobile{display:none;grid-template-columns:minmax(0,150px) minmax(0,1fr);gap:12px;align-items:end}.stick{position:relative;width:140px;height:140px;border-radius:50%;border:1px solid rgba(255,255,255,.12);background:radial-gradient(circle,rgba(255,255,255,.12),rgba(255,255,255,.03));touch-action:none}.knob{position:absolute;left:50%;top:50%;width:58px;height:58px;border-radius:50%;transform:translate(-50%,-50%);background:linear-gradient(135deg,var(--cyan),var(--gold));box-shadow:0 10px 24px rgba(0,0,0,.35)}
+        @media (max-width:900px){.shell{grid-template-columns:1fr}.mobile{display:grid}}
     </style>
 </head>
 <body>
     <div class="shell">
         <section class="panel game">
             <canvas id="game" width="1280" height="720"></canvas>
+            <div class="mobile">
+                <div class="stick" id="orbitStick" aria-label="Timing joystick">
+                    <div class="knob" id="orbitKnob"></div>
+                </div>
+                <button class="btn pri" id="tapBtn">Tap / Hit</button>
+            </div>
         </section>
         <aside class="panel side">
             <div class="lab">Timing Game</div>
@@ -32,8 +39,9 @@
         </aside>
     </div>
     <script>
-        const c=document.getElementById("game"),x=c.getContext("2d"),scoreEl=document.getElementById("score"),bestEl=document.getElementById("best"),streakEl=document.getElementById("streak"),messageEl=document.getElementById("message"),startBtn=document.getElementById("startBtn");
+        const c=document.getElementById("game"),x=c.getContext("2d"),scoreEl=document.getElementById("score"),bestEl=document.getElementById("best"),streakEl=document.getElementById("streak"),messageEl=document.getElementById("message"),startBtn=document.getElementById("startBtn"),tapBtn=document.getElementById("tapBtn"),orbitStick=document.getElementById("orbitStick"),orbitKnob=document.getElementById("orbitKnob");
         const key="orbit-tap-best"; let best=Number(localStorage.getItem(key)||0),run=false,score=0,streak=0,angle=0,speed=1.8,target=.6,ring=170,flash=0,particles=[];
+        const orbitStickState={active:false,pointerId:null};
         bestEl.textContent=best;
         function hud(){scoreEl.textContent=score;bestEl.textContent=best;streakEl.textContent=streak}
         function spawn(color){for(let i=0;i<18;i++){const a=Math.random()*Math.PI*2,v=Math.random()*140+40;particles.push({x:c.width/2+Math.cos(angle)*ring,y:c.height/2+Math.sin(angle)*ring,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life:Math.random()*.6+.3,size:Math.random()*4+2,color})}}
@@ -57,7 +65,17 @@
             if(flash>0){flash=Math.max(0,flash-.03);x.fillStyle=`rgba(255,209,102,${flash*.18})`;x.fillRect(0,0,c.width,c.height)}
         }
         function loop(){draw(); if(run){angle+=speed*.03; requestAnimationFrame(loop)}}
-        startBtn.addEventListener("click",reset); window.addEventListener("keydown",e=>{if(e.code==="Space"){e.preventDefault();tap()}}); c.addEventListener("click",tap); draw(); hud();
+        function pulseStick(clientX,clientY){
+            const rect=orbitStick.getBoundingClientRect(),cx=rect.left+rect.width/2,cy=rect.top+rect.height/2,dx=clientX-cx,dy=clientY-cy,r=rect.width*.28,d=Math.hypot(dx,dy)||1,k=Math.min(r,d);
+            orbitKnob.style.transform=`translate(calc(-50% + ${(dx/d)*k}px), calc(-50% + ${(dy/d)*k}px))`;
+        }
+        function resetOrbitStick(){orbitStickState.active=false;orbitStickState.pointerId=null;orbitKnob.style.transform="translate(-50%,-50%)"}
+        startBtn.addEventListener("click",reset); tapBtn.addEventListener("click",tap); window.addEventListener("keydown",e=>{if(e.code==="Space"){e.preventDefault();tap()}}); c.addEventListener("click",tap);
+        orbitStick.addEventListener("pointerdown",e=>{orbitStickState.active=true;orbitStickState.pointerId=e.pointerId;orbitStick.setPointerCapture(e.pointerId);pulseStick(e.clientX,e.clientY);tap()});
+        orbitStick.addEventListener("pointermove",e=>{if(orbitStickState.active&&orbitStickState.pointerId===e.pointerId)pulseStick(e.clientX,e.clientY)});
+        orbitStick.addEventListener("pointerup",e=>{if(orbitStickState.pointerId===e.pointerId)resetOrbitStick()});
+        orbitStick.addEventListener("pointercancel",resetOrbitStick);
+        draw(); hud();
     </script>
 </body>
 </html>

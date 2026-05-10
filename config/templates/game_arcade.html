@@ -76,6 +76,38 @@
             border:1px solid var(--line);
             background:linear-gradient(180deg,#09131f,#03070d);
         }
+        .mobile-controls{
+            display:none;
+            grid-template-columns:minmax(0,170px) minmax(0,1fr);
+            gap:12px;
+            margin-top:12px;
+            align-items:end;
+        }
+        .stick{
+            position:relative;
+            width:154px;
+            height:154px;
+            border-radius:50%;
+            border:1px solid rgba(255,255,255,.12);
+            background:radial-gradient(circle,rgba(255,255,255,.12),rgba(255,255,255,.03));
+            touch-action:none;
+        }
+        .knob{
+            position:absolute;
+            left:50%;
+            top:50%;
+            width:64px;
+            height:64px;
+            border-radius:50%;
+            transform:translate(-50%,-50%);
+            background:linear-gradient(135deg,var(--accent),#ffd36e);
+            box-shadow:0 12px 28px rgba(0,0,0,.35);
+        }
+        .mobile-actions{
+            display:grid;
+            grid-template-columns:repeat(2,minmax(0,1fr));
+            gap:10px;
+        }
         .side{
             padding:24px;
             display:grid;
@@ -132,6 +164,7 @@
         }
         @media (max-width:960px){
             .shell{grid-template-columns:1fr}
+            .mobile-controls{display:grid}
         }
         @media (max-width:720px){
             .hud{grid-template-columns:repeat(2,1fr)}
@@ -149,6 +182,15 @@
                 <div class="stat"><span class="lab">Status</span><div class="val" id="stateText" style="font-size:18px;">Ready</div></div>
             </div>
             <canvas id="game" width="1280" height="720"></canvas>
+            <div class="mobile-controls">
+                <div class="stick" id="arcadeStick" aria-label="Virtual joystick">
+                    <div class="knob" id="arcadeKnob"></div>
+                </div>
+                <div class="mobile-actions">
+                    <button class="btn pri" id="actionBtn">Action</button>
+                    <button class="btn ghost" id="altActionBtn">Alt</button>
+                </div>
+            </div>
         </section>
 
         <aside class="panel side">
@@ -187,6 +229,10 @@
         const messageEl = document.getElementById("message");
         const instructionsEl = document.getElementById("instructions");
         const restartBtn = document.getElementById("restartBtn");
+        const actionBtn = document.getElementById("actionBtn");
+        const altActionBtn = document.getElementById("altActionBtn");
+        const arcadeStick = document.getElementById("arcadeStick");
+        const arcadeKnob = document.getElementById("arcadeKnob");
         const pointer = {x: canvas.width / 2, y: canvas.height / 2, down: false};
 
         const rnd = (a, b) => Math.random() * (b - a) + a;
@@ -206,6 +252,7 @@
             world: {},
             particles: [],
             keys: new Set(),
+            touch: {dx: 0, dy: 0, active: false, laneCooldown: 0},
         };
 
         bestEl.textContent = state.best;
@@ -290,6 +337,15 @@
                 ctx.fill();
                 ctx.globalAlpha = 1;
             }
+        }
+
+        function setVirtualKey(code, active) {
+            if (active) state.keys.add(code);
+            else state.keys.delete(code);
+        }
+
+        function clearVirtualKeys() {
+            ["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space", "KeyC"].forEach((code) => state.keys.delete(code));
         }
 
         const games = {
@@ -661,6 +717,20 @@
                     if (code === "ArrowLeft" || code === "KeyA") state.world.lane = Math.max(0, state.world.lane - 1);
                     if (code === "ArrowRight" || code === "KeyD") state.world.lane = Math.min(2, state.world.lane + 1);
                     if (code === "KeyC") state.world.colorIndex = (state.world.colorIndex + 1) % 3;
+                },
+                virtualStick() {
+                    const x = state.touch.dx;
+                    if (state.touch.laneCooldown > 0) return;
+                    if (x < -0.55) {
+                        state.world.lane = Math.max(0, state.world.lane - 1);
+                        state.touch.laneCooldown = 0.18;
+                    } else if (x > 0.55) {
+                        state.world.lane = Math.min(2, state.world.lane + 1);
+                        state.touch.laneCooldown = 0.18;
+                    }
+                },
+                altAction() {
+                    state.world.colorIndex = (state.world.colorIndex + 1) % 3;
                 },
             },
             "drift-breaker": {
@@ -1153,10 +1223,13 @@
             state.last = 0;
             state.time = 0;
             state.particles = [];
+            state.touch = {dx: 0, dy: 0, active: false, laneCooldown: 0};
+            clearVirtualKeys();
             currentGame.init();
             instructionsEl.textContent = currentGame.instructions;
             setStatus("Live", `${title} boshlandi.`);
             syncHud();
+            syncMobileHud();
             requestAnimationFrame(loop);
         }
 
@@ -1168,9 +1241,12 @@
             const dt = Math.min(0.033, (t - (state.last || t)) / 1000);
             state.last = t;
             state.time += dt;
+            if (state.touch.laneCooldown > 0) state.touch.laneCooldown = Math.max(0, state.touch.laneCooldown - dt);
+            if (currentGame.virtualStick) currentGame.virtualStick(dt);
             currentGame.update(dt);
             drawFrame(dt);
             syncHud();
+            syncMobileHud();
             if (state.run) requestAnimationFrame(loop);
         }
 
@@ -1183,6 +1259,89 @@
             const rect = canvas.getBoundingClientRect();
             pointer.x = (event.clientX - rect.left) * (canvas.width / rect.width);
             pointer.y = (event.clientY - rect.top) * (canvas.height / rect.height);
+        }
+
+        function syncMobileHud() {
+            const mobileMap = {
+                "gravity-well": {action: "Start", alt: "Brake"},
+                "color-rush": {action: "Start", alt: "Color"},
+                "crystal-harvest": {action: "Start", alt: "Hold"},
+                "arc-blaster": {action: "Shoot", alt: "Aim"},
+                "nova-jump": {action: "Jump", alt: "Restart"},
+                "zen-pulse": {action: pointer.down ? "Release" : "Charge", alt: "Restart"},
+                "tower-balance": {action: "Drop", alt: "Restart"},
+                "sky-hook": {action: "Release", alt: "Restart"},
+                "meteor-pop": {action: "Tap", alt: "Restart"},
+                "aurora-link": {action: "Select", alt: "Restart"},
+            };
+            const labels = mobileMap[slug] || {action: "Action", alt: "Restart"};
+            actionBtn.textContent = labels.action;
+            altActionBtn.textContent = labels.alt;
+        }
+
+        function updateStick(clientX, clientY) {
+            const rect = arcadeStick.getBoundingClientRect();
+            const cx = rect.left + rect.width / 2;
+            const cy = rect.top + rect.height / 2;
+            const dx = clientX - cx;
+            const dy = clientY - cy;
+            const radius = rect.width * 0.3;
+            const magnitude = Math.hypot(dx, dy) || 1;
+            const limited = Math.min(radius, magnitude);
+            const nx = dx / magnitude;
+            const ny = dy / magnitude;
+            arcadeKnob.style.transform = `translate(calc(-50% + ${nx * limited}px), calc(-50% + ${ny * limited}px))`;
+            state.touch.dx = limited ? nx * (limited / radius) : 0;
+            state.touch.dy = limited ? ny * (limited / radius) : 0;
+            state.touch.active = true;
+            setVirtualKey("KeyA", state.touch.dx < -0.35);
+            setVirtualKey("ArrowLeft", state.touch.dx < -0.35);
+            setVirtualKey("KeyD", state.touch.dx > 0.35);
+            setVirtualKey("ArrowRight", state.touch.dx > 0.35);
+            setVirtualKey("KeyW", state.touch.dy < -0.35);
+            setVirtualKey("ArrowUp", state.touch.dy < -0.35);
+            setVirtualKey("KeyS", state.touch.dy > 0.35);
+            setVirtualKey("ArrowDown", state.touch.dy > 0.35);
+        }
+
+        function resetStick() {
+            state.touch.dx = 0;
+            state.touch.dy = 0;
+            state.touch.active = false;
+            arcadeKnob.style.transform = "translate(-50%,-50%)";
+            ["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].forEach((code) => state.keys.delete(code));
+        }
+
+        function triggerAction() {
+            if (!state.run) {
+                restart();
+                return;
+            }
+            if (currentGame.pointerDown) {
+                pointer.down = true;
+                currentGame.pointerDown();
+            } else if (currentGame.keyDown) {
+                currentGame.keyDown("Space");
+            }
+        }
+
+        function releaseAction() {
+            pointer.down = false;
+            if (currentGame.pointerUp) currentGame.pointerUp();
+        }
+
+        function triggerAltAction() {
+            if (!state.run) {
+                restart();
+                return;
+            }
+            if (currentGame.altAction) currentGame.altAction();
+            else if (slug === "arc-blaster") currentGame.keyDown("Space");
+            else if (slug === "color-rush") currentGame.keyDown("KeyC");
+            else if (slug === "zen-pulse") {
+                if (pointer.down) releaseAction();
+                else triggerAction();
+            }
         }
 
         canvas.addEventListener("mousemove", (event) => {
@@ -1236,12 +1395,26 @@
             if (slug === "zen-pulse" && event.code === "Space" && currentGame.pointerUp) currentGame.pointerUp();
         });
         restartBtn.addEventListener("click", restart);
+        actionBtn.addEventListener("pointerdown", triggerAction);
+        actionBtn.addEventListener("pointerup", releaseAction);
+        actionBtn.addEventListener("pointercancel", releaseAction);
+        altActionBtn.addEventListener("click", triggerAltAction);
+        arcadeStick.addEventListener("pointerdown", (event) => {
+            arcadeStick.setPointerCapture(event.pointerId);
+            updateStick(event.clientX, event.clientY);
+        });
+        arcadeStick.addEventListener("pointermove", (event) => {
+            if (event.buttons !== 0 || state.touch.active) updateStick(event.clientX, event.clientY);
+        });
+        arcadeStick.addEventListener("pointerup", resetStick);
+        arcadeStick.addEventListener("pointercancel", resetStick);
 
         instructionsEl.textContent = currentGame.instructions;
         setStatus("Ready", "Start bosing yoki canvas ustiga bosib o'yinni boshlang.");
         currentGame.init();
         drawFrame(0.016);
         syncHud();
+        syncMobileHud();
     </script>
 </body>
 </html>

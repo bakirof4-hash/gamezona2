@@ -12,7 +12,8 @@
         .wrap{position:relative;border-radius:22px;overflow:hidden;border:1px solid var(--line)} canvas{display:block;width:100%;height:auto;aspect-ratio:16/9;background:linear-gradient(180deg,#08101c,#020611)}
         .overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,rgba(3,8,18,.14),rgba(3,8,18,.72));transition:.2s}.overlay.hidden{opacity:0;pointer-events:none}.card{width:min(500px,calc(100% - 32px));padding:28px;border-radius:28px;background:rgba(4,10,19,.83);border:1px solid rgba(255,255,255,.1);text-align:center}
         .card h2{margin:0 0 10px;font-size:42px}.card p{margin:0 0 18px;color:var(--muted);line-height:1.55}.row{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}.btn{border:0;border-radius:999px;padding:13px 20px;font-size:15px;font-weight:800;cursor:pointer}.pri{background:linear-gradient(135deg,var(--cyan),var(--gold));color:#07111f}.sec{background:rgba(255,255,255,.07);color:var(--text);text-decoration:none;border:1px solid rgba(255,255,255,.1)}
-        .mobile{display:none;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:12px}.touch{min-height:54px;border-radius:16px;border:1px solid var(--line);background:rgba(255,255,255,.05);color:var(--text);font-weight:800}
+        .mobile{display:none;grid-template-columns:minmax(0,170px) minmax(0,1fr);gap:12px;align-items:end;margin-top:12px}.touch{min-height:54px;border-radius:16px;border:1px solid var(--line);background:rgba(255,255,255,.05);color:var(--text);font-weight:800}
+        .stick{position:relative;width:150px;height:150px;border-radius:50%;border:1px solid var(--line);background:radial-gradient(circle,rgba(255,255,255,.12),rgba(255,255,255,.03));touch-action:none}.knob{position:absolute;left:50%;top:50%;width:64px;height:64px;border-radius:50%;transform:translate(-50%,-50%);background:linear-gradient(135deg,var(--cyan),var(--gold));box-shadow:0 12px 28px rgba(0,0,0,.35)}.mobile-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
         .side{padding:24px;display:grid;gap:16px;align-content:start}.ey{font-size:12px;letter-spacing:.24em;text-transform:uppercase;color:var(--cyan)} h1{margin:0;font:700 clamp(40px,6vw,76px)/.94 Georgia,serif}.lead,.txt{margin:0;color:var(--muted);line-height:1.55}
         .box{padding:16px;border:1px solid var(--line);border-radius:18px;background:rgba(255,255,255,.03)}.title{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--cyan);margin:0 0 8px}.item{display:flex;align-items:center;gap:10px;color:var(--muted);margin-top:8px}.dot{width:14px;height:14px;border-radius:50%;box-shadow:0 0 14px currentColor}.r{color:var(--red);background:var(--red)}.g{color:var(--green);background:var(--green)}.c{color:var(--cyan);background:var(--cyan)}.y{color:var(--gold);background:var(--gold)}
         @media (max-width:980px){.shell{grid-template-columns:1fr}} @media (max-width:720px){body{padding:12px}.hud{grid-template-columns:repeat(2,1fr)}.mobile{display:grid}.side{padding:18px}}
@@ -41,8 +42,13 @@
                 </div>
             </div>
             <div class="mobile">
-                <button class="touch" id="boostBtn">Boost</button>
-                <button class="touch" id="pulseBtn">Pulse</button>
+                <div class="stick" id="flightStick" aria-label="Boost joystick">
+                    <div class="knob" id="flightKnob"></div>
+                </div>
+                <div class="mobile-actions">
+                    <button class="touch" id="boostBtn">Boost</button>
+                    <button class="touch" id="pulseBtn">Pulse</button>
+                </div>
             </div>
         </section>
         <aside class="panel side">
@@ -61,10 +67,11 @@
         </aside>
     </div>
     <script>
-        const c=document.getElementById("game"),x=c.getContext("2d"),overlay=document.getElementById("overlay"),ovTitle=document.getElementById("ovTitle"),ovText=document.getElementById("ovText"),startBtn=document.getElementById("startBtn"),boostBtn=document.getElementById("boostBtn"),pulseBtn=document.getElementById("pulseBtn");
+        const c=document.getElementById("game"),x=c.getContext("2d"),overlay=document.getElementById("overlay"),ovTitle=document.getElementById("ovTitle"),ovText=document.getElementById("ovText"),startBtn=document.getElementById("startBtn"),boostBtn=document.getElementById("boostBtn"),pulseBtn=document.getElementById("pulseBtn"),flightStick=document.getElementById("flightStick"),flightKnob=document.getElementById("flightKnob");
         const scoreEl=document.getElementById("score"),healthEl=document.getElementById("health"),comboEl=document.getElementById("combo"),bestEl=document.getElementById("best");
         const key="nebula-rush-best",bestState={value:Number(localStorage.getItem(key)||0)}; bestEl.textContent=bestState.value;
         const s={run:false,last:0,score:0,health:100,combo:1,comboT:0,speed:280,dist:0,pulse:100,spawn:0,pick:0,supply:3.8,flash:0,stars:[],parts:[],haz:[],pickups:[],waves:[],ship:{x:170,y:300,r:22,vy:0,boost:false}};
+        const stickState={active:false,pointerId:null};
         const rnd=(a,b)=>Math.random()*(b-a)+a, clamp=(n,a,b)=>Math.max(a,Math.min(b,n)), col=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y)<a.r+b.r;
         function stars(){s.stars=Array.from({length:85},()=>({x:rnd(0,c.width),y:rnd(0,c.height),z:rnd(.5,2.6),v:rnd(40,170)}))}
         function hud(){scoreEl.textContent=Math.floor(s.score);healthEl.textContent=Math.max(0,Math.floor(s.health));comboEl.textContent=`x${s.combo.toFixed(1)}`;bestEl.textContent=bestState.value}
@@ -94,7 +101,13 @@
         }
         function loop(t){if(!s.run)return;const dt=Math.min(.033,(t-(s.last||t))/1000);s.last=t;update(dt);render(dt);hud();if(s.run)requestAnimationFrame(loop)}
         function press(e){if(e)e.preventDefault();if(!s.run)start();s.ship.boost=true} function release(e){if(e)e.preventDefault();s.ship.boost=false}
+        function moveStick(clientX,clientY){const rect=flightStick.getBoundingClientRect(),cx=rect.left+rect.width/2,cy=rect.top+rect.height/2,dx=clientX-cx,dy=clientY-cy,r=rect.width*.28,d=Math.hypot(dx,dy)||1,k=Math.min(r,d);flightKnob.style.transform=`translate(calc(-50% + ${dx/d*k}px), calc(-50% + ${dy/d*k}px))`;if(!s.run)start();s.ship.boost=dy<-(rect.height*.12)}
+        function resetStick(){stickState.active=false;stickState.pointerId=null;flightKnob.style.transform="translate(-50%,-50%)";s.ship.boost=false}
         startBtn.addEventListener("click",start); [c,boostBtn].forEach(el=>{if(!el)return;el.addEventListener("mousedown",press);el.addEventListener("mouseup",release);el.addEventListener("mouseleave",release);el.addEventListener("touchstart",press,{passive:false});el.addEventListener("touchend",release,{passive:false})}); pulseBtn.addEventListener("click",wave);
+        flightStick.addEventListener("pointerdown",e=>{stickState.active=true;stickState.pointerId=e.pointerId;flightStick.setPointerCapture(e.pointerId);moveStick(e.clientX,e.clientY)});
+        flightStick.addEventListener("pointermove",e=>{if(stickState.active&&stickState.pointerId===e.pointerId)moveStick(e.clientX,e.clientY)});
+        flightStick.addEventListener("pointerup",e=>{if(stickState.pointerId===e.pointerId)resetStick()});
+        flightStick.addEventListener("pointercancel",resetStick);
         window.addEventListener("keydown",e=>{if(["Space","ArrowUp","KeyW"].includes(e.code)){e.preventDefault();if(!s.run)start();s.ship.boost=true} if(["ShiftLeft","ShiftRight","KeyS"].includes(e.code)){e.preventDefault();wave()}});
         window.addEventListener("keyup",e=>{if(["Space","ArrowUp","KeyW"].includes(e.code)){e.preventDefault();s.ship.boost=false}});
         stars();render(.016);hud();
