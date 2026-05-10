@@ -7,9 +7,9 @@
     <style>
         :root{--bg:#08121b;--bg2:#11283a;--panel:rgba(7,18,27,.82);--line:rgba(255,255,255,.08);--text:#f4fbff;--muted:#abc0d4;--cyan:#7bdff2;--gold:#ffd166;--red:#ff5d73}
         *{box-sizing:border-box} body{margin:0;min-height:100vh;padding:18px;display:grid;place-items:center;color:var(--text);font-family:"Segoe UI",sans-serif;background:radial-gradient(circle at top,rgba(123,223,242,.16),transparent 24%),linear-gradient(160deg,var(--bg),var(--bg2) 58%,#04080d)}
-        .shell{width:min(1050px,100%);display:grid;grid-template-columns:1fr 320px;gap:18px}.panel{background:var(--panel);border:1px solid var(--line);border-radius:28px;box-shadow:0 24px 60px rgba(0,0,0,.32)}
+        .shell{width:min(1440px,100%);display:grid;grid-template-columns:minmax(0,1.45fr) 340px;gap:18px}.panel{background:var(--panel);border:1px solid var(--line);border-radius:28px;box-shadow:0 24px 60px rgba(0,0,0,.32)}
         .game{padding:18px}.side{padding:22px;display:grid;gap:16px;align-content:start}.lab{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--cyan)} h1{margin:0;font:700 clamp(32px,5vw,62px)/.94 Georgia,serif}.msg{margin:0;color:var(--muted);line-height:1.55}
-        canvas{display:block;width:100%;height:auto;border-radius:22px;border:1px solid var(--line);background:linear-gradient(180deg,#09131c,#040910)} .stat{padding:16px;border-radius:18px;border:1px solid var(--line);background:rgba(255,255,255,.03)} .num{font-size:34px;font-weight:800}
+        canvas{display:block;width:100%;height:auto;aspect-ratio:16/9;border-radius:22px;border:1px solid var(--line);background:linear-gradient(180deg,#09131c,#040910)} .stat{padding:16px;border-radius:18px;border:1px solid var(--line);background:rgba(255,255,255,.03)} .num{font-size:34px;font-weight:800}
         .btn{border:0;border-radius:999px;padding:13px 18px;font-weight:800;cursor:pointer;text-decoration:none;text-align:center}.pri{background:linear-gradient(135deg,var(--cyan),var(--gold));color:#07111f}.ghost{background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--text)}
         @media (max-width:900px){.shell{grid-template-columns:1fr}}
     </style>
@@ -17,7 +17,7 @@
 <body>
     <div class="shell">
         <section class="panel game">
-            <canvas id="game" width="760" height="620"></canvas>
+            <canvas id="game" width="1280" height="720"></canvas>
         </section>
         <aside class="panel side">
             <div class="lab">Timing Game</div>

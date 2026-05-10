@@ -7,9 +7,9 @@
     <style>
         :root{--bg:#07111f;--bg2:#10233f;--panel:rgba(7,17,31,.78);--line:rgba(141,247,255,.16);--text:#f4fbff;--muted:#a5bdd0;--cyan:#8df7ff;--gold:#ffd166;--red:#ff5d73;--green:#62f2a2}
         *{box-sizing:border-box} body{margin:0;min-height:100vh;font-family:"Trebuchet MS","Segoe UI",sans-serif;color:var(--text);background:radial-gradient(circle at 20% 10%,rgba(255,209,102,.15),transparent 20%),radial-gradient(circle at 80% 0,rgba(141,247,255,.15),transparent 22%),linear-gradient(160deg,var(--bg),var(--bg2) 60%,#03070f);display:grid;place-items:center;padding:20px}
-        .shell{width:min(1150px,100%);display:grid;grid-template-columns:1.15fr .85fr;gap:18px}.panel{background:var(--panel);border:1px solid var(--line);border-radius:28px;box-shadow:0 28px 70px rgba(0,0,0,.38);backdrop-filter:blur(14px)}
+        .shell{width:min(1520px,100%);display:grid;grid-template-columns:minmax(0,1.45fr) 380px;gap:18px}.panel{background:var(--panel);border:1px solid var(--line);border-radius:28px;box-shadow:0 28px 70px rgba(0,0,0,.38);backdrop-filter:blur(14px)}
         .game{padding:16px}.hud{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px}.stat{padding:14px;border:1px solid var(--line);border-radius:18px;background:rgba(255,255,255,.03)}.lab{font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:8px}.val{font-size:30px;font-weight:800}
-        .wrap{position:relative;border-radius:22px;overflow:hidden;border:1px solid var(--line)} canvas{display:block;width:100%;height:auto;aspect-ratio:16/10;background:linear-gradient(180deg,#08101c,#020611)}
+        .wrap{position:relative;border-radius:22px;overflow:hidden;border:1px solid var(--line)} canvas{display:block;width:100%;height:auto;aspect-ratio:16/9;background:linear-gradient(180deg,#08101c,#020611)}
         .overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,rgba(3,8,18,.14),rgba(3,8,18,.72));transition:.2s}.overlay.hidden{opacity:0;pointer-events:none}.card{width:min(500px,calc(100% - 32px));padding:28px;border-radius:28px;background:rgba(4,10,19,.83);border:1px solid rgba(255,255,255,.1);text-align:center}
         .card h2{margin:0 0 10px;font-size:42px}.card p{margin:0 0 18px;color:var(--muted);line-height:1.55}.row{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}.btn{border:0;border-radius:999px;padding:13px 20px;font-size:15px;font-weight:800;cursor:pointer}.pri{background:linear-gradient(135deg,var(--cyan),var(--gold));color:#07111f}.sec{background:rgba(255,255,255,.07);color:var(--text);text-decoration:none;border:1px solid rgba(255,255,255,.1)}
         .mobile{display:none;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:12px}.touch{min-height:54px;border-radius:16px;border:1px solid var(--line);background:rgba(255,255,255,.05);color:var(--text);font-weight:800}
@@ -28,7 +28,7 @@
                 <div class="stat"><span class="lab">Rekord</span><div class="val" id="best">0</div></div>
             </div>
             <div class="wrap">
-                <canvas id="game" width="960" height="600"></canvas>
+                <canvas id="game" width="1280" height="720"></canvas>
                 <div class="overlay" id="overlay">
                     <div class="card">
                         <h2 id="ovTitle">Nebula Rush</h2>

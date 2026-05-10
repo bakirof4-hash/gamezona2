@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ room.name }} - 3D Horror Room</title>
+    <style>
+        :root{--text:#f7f3f4;--muted:#b9aeb3;--blood:#ff5c75;--cyan:#7df9ff;--gold:#ffcf5a}
+        *{box-sizing:border-box}
+        html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#000;font-family:"Segoe UI",sans-serif;color:var(--text)}
+        .viewport{position:relative;width:100vw;height:100vh;background:#000}
+        canvas{display:block;width:100vw;height:100vh;background:#020305}
+        .hud{position:fixed;inset:0;pointer-events:none;z-index:6}
+        .chips{position:absolute;top:18px;left:18px;display:flex;gap:10px;flex-wrap:wrap;max-width:min(72vw,980px)}
+        .chip{padding:10px 14px;border-radius:999px;border:1px solid rgba(255,255,255,.08);background:rgba(7,10,16,.48);backdrop-filter:blur(10px);box-shadow:0 14px 40px rgba(0,0,0,.24);font-size:12px;letter-spacing:.14em;text-transform:uppercase}
+        .stats{position:absolute;right:18px;top:18px;display:grid;grid-template-columns:repeat(2,minmax(110px,1fr));gap:10px;width:min(28vw,260px)}
+        .stat{padding:12px 14px;border-radius:20px;border:1px solid rgba(255,255,255,.08);background:rgba(7,10,16,.48);backdrop-filter:blur(10px);text-align:left}
+        .stat span{display:block;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+        .stat b{font-size:24px;line-height:1}
+        .hint{position:absolute;left:18px;bottom:18px;padding:10px 14px;border-radius:999px;border:1px solid rgba(255,255,255,.08);background:rgba(7,10,16,.46);backdrop-filter:blur(10px);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#dbe7f4}
+        .menu-overlay{position:fixed;inset:0;display:grid;place-items:center;background:rgba(0,0,0,.72);backdrop-filter:blur(14px);opacity:0;pointer-events:none;transition:opacity .18s ease;z-index:10}
+        .menu-overlay.show{opacity:1;pointer-events:auto}
+        .menu{width:min(980px,calc(100vw - 28px));max-height:calc(100vh - 28px);overflow:auto;padding:18px;display:grid;grid-template-columns:1fr 1fr;gap:16px;border-radius:30px;border:1px solid rgba(255,255,255,.08);background:rgba(8,10,16,.9);box-shadow:0 28px 80px rgba(0,0,0,.4)}
+        .card{padding:18px;border-radius:24px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.04)}
+        .title{display:block;margin-bottom:10px;font-size:26px;font-family:Georgia,serif}
+        .players{display:flex;gap:10px;flex-wrap:wrap}
+        .player{padding:10px 13px;border-radius:16px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.05)}
+        .grid{display:grid;gap:10px}
+        .btn,textarea{font:inherit}
+        .btn{display:inline-flex;align-items:center;justify-content:center;padding:13px 16px;border-radius:18px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.06);color:var(--text);font-weight:700;cursor:pointer}
+        .btn.pri{background:linear-gradient(135deg,var(--blood),#ff9560);color:#13070c}
+        textarea{width:100%;min-height:100px;padding:14px 16px;border-radius:18px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:var(--text);resize:vertical}
+        .menu-foot{grid-column:1/-1;display:flex;justify-content:space-between;gap:12px;align-items:center}
+        .menu-foot p{margin:0;color:var(--muted)}
+        .screamer-overlay{position:fixed;inset:0;display:grid;place-items:center;background:radial-gradient(circle,rgba(255,255,255,.16),rgba(0,0,0,.96));opacity:0;pointer-events:none;transition:opacity .14s ease;z-index:15}
+        .screamer-overlay.show{opacity:1}
+        .screamer-card{max-width:560px;padding:28px;border-radius:30px;background:rgba(16,5,8,.95);border:1px solid rgba(255,255,255,.12);text-align:center;box-shadow:0 0 140px rgba(255,92,117,.28)}
+        .sub{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+        .screamer-face{font:700 82px/1 Georgia,serif;color:var(--blood)}
+        .caption{margin-top:8px;color:var(--muted);line-height:1.5}
+        @media (max-width:900px){
+            .stats{width:auto;grid-template-columns:repeat(2,minmax(90px,1fr));max-width:50vw}
+            .chips{max-width:62vw}
+            .menu{grid-template-columns:1fr}
+        }
+    </style>
+</head>
+<body>
+<div class="viewport">
+    <canvas id="game" width="1600" height="900"></canvas>
+    <div class="hud">
+        <div class="chips">
+            <div class="chip" id="roomTitleChip">{{ room.name }}</div>
+            <div class="chip" id="locationChip">{{ room.location }}</div>
+            <div class="chip">Code <span id="roomCode" style="margin-left:6px">{{ room.code }}</span></div>
+        </div>
+        <div class="stats">
+            <div class="stat"><span>Objective</span><b id="objectiveCount">0/3</b></div>
+            <div class="stat"><span>Light</span><b id="lightLevel">100%</b></div>
+            <div class="stat"><span>Threat</span><b id="threatLevel">0%</b></div>
+            <div class="stat"><span>Status</span><b id="gameStatus" style="font-size:18px">Ready</b></div>
+        </div>
+        <div class="hint">Click for mouse look • WASD move • Shift freeze • F pulse • Tab menu</div>
+    </div>
+</div>
+
+<div class="menu-overlay" id="menuOverlay">
+    <div class="menu">
+        <section class="card">
+            <strong class="title">Room</strong>
+            <p id="atmosphereText" class="caption">The room is listening.</p>
+            <div style="height:14px"></div>
+            <div class="players" id="players"></div>
+        </section>
+
+        <section class="card">
+            <strong class="title">Controls</strong>
+            <p class="caption">`WASD` yurish. Sichqoncha bilan qarash. `Q/E` zaxira burilish. `Shift` bosilganda kamera to'xtaydi. `F` flashlight pulse. `Space` game overdan keyin restart.</p>
+        </section>
+
+        <section class="card">
+            <strong class="title">Location</strong>
+            <div class="grid">
+                {% for location in locations %}
+                <button class="btn" data-location="{{ location.slug }}">{{ location.title }}</button>
+                {% endfor %}
+            </div>
+        </section>
+
+        <section class="card">
+            <strong class="title">Atmosphere</strong>
+            <textarea id="atmosphereInput" placeholder="Whispers are moving under the floor..."></textarea>
+            <div style="height:10px"></div>
+            <button class="btn pri" id="saveAtmosphere">Save Atmosphere</button>
+        </section>
+
+        <section class="card">
+            <strong class="title">Scrimer</strong>
+            <div class="grid">
+                {% for screamer in screamers %}
+                <button class="btn" data-screamer="{{ screamer.slug }}">{{ screamer.title }}</button>
+                {% endfor %}
+                <button class="btn pri" id="clearScreamer">Clear Screamer</button>
+            </div>
+        </section>
+
+        <div class="menu-foot">
+            <p>`Tab` menyuni yopadi. `Esc` pointer lockdan chiqadi.</p>
+            <button class="btn" id="closeMenu">Continue</button>
+        </div>
+    </div>
+</div>
+
+<div class="screamer-overlay" id="screamerOverlay">
+    <div class="screamer-card">
+        <div class="sub">Screamer</div>
+        <div class="screamer-face" id="screamerFace">RUN</div>
+        <p class="caption" id="screamerText">It is behind you.</p>
+    </div>
+</div>
+
+{{ room_json|json_script:"room-data" }}
+<script>
+const roomData = JSON.parse(document.getElementById("room-data").textContent);
+const roomCode = roomData.code;
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+const objectiveEl = document.getElementById("objectiveCount");
+const lightEl = document.getElementById("lightLevel");
+const threatEl = document.getElementById("threatLevel");
+const statusEl = document.getElementById("gameStatus");
+const roomTitleChipEl = document.getElementById("roomTitleChip");
+const locationChipEl = document.getElementById("locationChip");
+const atmosphereTextEl = document.getElementById("atmosphereText");
+const atmosphereInputEl = document.getElementById("atmosphereInput");
+const playersEl = document.getElementById("players");
+const menuOverlayEl = document.getElementById("menuOverlay");
+const screamerOverlayEl = document.getElementById("screamerOverlay");
+const screamerFaceEl = document.getElementById("screamerFace");
+const screamerTextEl = document.getElementById("screamerText");
+const closeMenuBtn = document.getElementById("closeMenu");
+
+const locationThemes = {
+    "abandoned-hospital": {sky:"#081623", sky2:"#12283f", ceiling:"#182937", ground:"#0b1017", floorGlow:"#16202e", wall:"#4f7992", wall2:"#2e4557", accent:"#7df9ff", fog:"#7df9ff"},
+    "forest-chapel": {sky:"#0f1910", sky2:"#223523", ceiling:"#1c2a1f", ground:"#0d130e", floorGlow:"#19231a", wall:"#55795c", wall2:"#314535", accent:"#8fff87", fog:"#8fff87"},
+    "metro-tunnel": {sky:"#15110d", sky2:"#3d2d1c", ceiling:"#2a2118", ground:"#121216", floorGlow:"#25211d", wall:"#867863", wall2:"#554b3d", accent:"#ffcf5a", fog:"#ffcf5a"},
+    "mirror-hotel": {sky:"#180d1f", sky2:"#352044", ceiling:"#2a1931", ground:"#130d18", floorGlow:"#24162a", wall:"#81678f", wall2:"#4d3a56", accent:"#ff7d9a", fog:"#ff7d9a"},
+};
+
+const layouts = {
+    "abandoned-hospital": [
+        "11111111111111111111","10001000000000000001","10101011101111111001","10100010100000001001","10111010101111101001","10000000100000101001","11101111101110101001","10001000001000100001","10111011111011111101","100000100000000000E1","11111111111111111111",
+    ],
+    "forest-chapel": [
+        "11111111111111111111","10000000010000000001","10111111010111111101","10000001010100000101","11111001000101110101","10000001111101000101","10111100000101011101","10100011110101000001","10100000000101111101","100011111100000000E1","11111111111111111111",
+    ],
+    "metro-tunnel": [
+        "11111111111111111111","10000000100000000001","10111110101111111101","10100000100010000001","10101111111010111101","10100000001010000001","10111111101011111101","10000000101000001001","11111110101111101001","10000000000000000E01","11111111111111111111",
+    ],
+    "mirror-hotel": [
+        "11111111111111111111","10000000000000000001","10111111101111111101","10100000101000000101","10101110101011110101","10101000100010000101","10101011111110111101","10100010000000100001","10111110111110101101","10000000000000100E01","11111111111111111111",
+    ]
+};
+
+
+
+const state = {
+    room: roomData,
+    lastScreamer: roomData.screamer || "",
+    keys: new Set(),
+    pointerLocked: false,
+    menuOpen: false,
+    world: null,
+    last: 0,
+    pulse: 0,
+    breath: 0,
+    particles: [],
+};
+
+function csrfToken() {
+    const cookie = document.cookie.split("; ").find((row) => row.startsWith("csrftoken="));
+    return cookie ? cookie.split("=")[1] : "";
+}
+function rnd(a,b){return Math.random()*(b-a)+a}
+function clamp(n,a,b){return Math.max(a,Math.min(b,n))}
+function dist(ax,ay,bx,by){return Math.hypot(ax-bx,ay-by)}
+
+function toggleMenu(force) {
+    state.menuOpen = force ?? !state.menuOpen;
+    menuOverlayEl.classList.toggle("show", state.menuOpen);
+    if (state.menuOpen && document.pointerLockElement === canvas) document.exitPointerLock();
+}
+
+function buildWorld(locationSlug) {
+    const rows = layouts[locationSlug] || layouts["abandoned-hospital"];
+    const theme = locationThemes[locationSlug] || locationThemes["abandoned-hospital"];
+    const open = [];
+    const relics = [];
+    let exit = {x: 18.5, y: 9.5};
+    rows.forEach((row, y) => {
+        [...row].forEach((cell, x) => {
+            if (cell !== "1") open.push({x: x + 0.5, y: y + 0.5});
+            if (cell === "E") exit = {x: x + 0.5, y: y + 0.5};
+        });
+    });
+    while (relics.length < 3) {
+        const spot = open[Math.floor(Math.random() * open.length)];
+        if (dist(spot.x, spot.y, 1.5, 1.5) > 3 && dist(spot.x, spot.y, exit.x, exit.y) > 2.5 && !relics.some((r) => dist(r.x, r.y, spot.x, spot.y) < 2)) {
+            relics.push({x: spot.x, y: spot.y, found: false, pulse: rnd(0, 6.28)});
+        }
+    }
+    state.particles = Array.from({length: 52}, () => ({x: rnd(0, canvas.width), y: rnd(0, canvas.height), z: rnd(.2, 1), v: rnd(.6, 1.8)}));
+    return {
+        rows, theme, slug: locationSlug,
+        player: {x: 1.5, y: 1.5, a: 0, radius: 0.18, bob: 0},
+        monster: {x: exit.x - 1.1, y: exit.y - 0.8, radius: 0.23},
+        relics, exit, found: 0, light: 100, threat: 0, finished: false, flicker: rnd(0, 6.28),
+    };
+}
+
+function isWall(world, x, y) {
+    const gx = Math.floor(x), gy = Math.floor(y);
+    if (gy < 0 || gy >= world.rows.length || gx < 0 || gx >= world.rows[0].length) return true;
+    return world.rows[gy][gx] === "1";
+}
+
+function moveWithCollision(entity, dx, dy) {
+    const w = state.world;
+    const r = entity.radius || 0.18;
+    const nx = entity.x + dx;
+    const ny = entity.y + dy;
+    if (!isWall(w, nx + r, entity.y) && !isWall(w, nx - r, entity.y)) entity.x = nx;
+    if (!isWall(w, entity.x, ny + r) && !isWall(w, entity.x, ny - r)) entity.y = ny;
+}
+
+function triggerScreamer(face, text) {
+    screamerFaceEl.textContent = face;
+    screamerTextEl.textContent = text;
+    screamerOverlayEl.classList.add("show");
+    setTimeout(() => screamerOverlayEl.classList.remove("show"), 1550);
+}
+
+function resizeCanvas() {
+    const dpr = clamp(window.devicePixelRatio || 1, 1, 2);
+    const w = Math.floor(window.innerWidth * dpr);
+    const h = Math.floor(window.innerHeight * dpr);
+    if (canvas.width !== w || canvas.height !== h) {
+        canvas.width = w;
+        canvas.height = h;
+    }
+}
+
+function resetGame() {
+    state.world = buildWorld(state.room.location.slug);
+    state.last = 0;
+    state.pulse = 0;
+    state.breath = 0;
+    statusEl.textContent = "Hunting";
+    requestAnimationFrame(loop);
+}
+
+function castRay(px, py, angle, maxDist = 24) {
+    const step = 0.018;
+    let d = 0;
+    while (d < maxDist) {
+        const x = px + Math.cos(angle) * d;
+        const y = py + Math.sin(angle) * d;
+        if (isWall(state.world, x, y)) return d;
+        d += step;
+    }
+    return maxDist;
+}
+
+function update(dt) {
+    const w = state.world;
+    if (!w || w.finished || state.menuOpen) return;
+    const p = w.player;
+    const freeze = state.keys.has("ShiftLeft") || state.keys.has("ShiftRight");
+    const moveSpeed = (freeze ? 0 : 1.95) * dt;
+    const rotSpeed = (freeze ? 0 : 1.9) * dt;
+    if (state.keys.has("ArrowLeft") || state.keys.has("KeyQ")) p.a -= rotSpeed;
+    if (state.keys.has("ArrowRight") || state.keys.has("KeyE")) p.a += rotSpeed;
+
+    let mx = 0, my = 0;
+    if (state.keys.has("KeyW") || state.keys.has("ArrowUp")) { mx += Math.cos(p.a) * moveSpeed; my += Math.sin(p.a) * moveSpeed; }
+    if (state.keys.has("KeyS") || state.keys.has("ArrowDown")) { mx -= Math.cos(p.a) * moveSpeed * 0.78; my -= Math.sin(p.a) * moveSpeed * 0.78; }
+    if (state.keys.has("KeyA")) { mx += Math.cos(p.a - Math.PI / 2) * moveSpeed * 0.82; my += Math.sin(p.a - Math.PI / 2) * moveSpeed * 0.82; }
+    if (state.keys.has("KeyD")) { mx += Math.cos(p.a + Math.PI / 2) * moveSpeed * 0.82; my += Math.sin(p.a + Math.PI / 2) * moveSpeed * 0.82; }
+    moveWithCollision(p, mx, my);
+
+    const motion = Math.hypot(mx, my);
+    p.bob += motion * 18;
+    state.breath += dt * (freeze ? 0.8 : 1.5);
+    w.flicker += dt * (1.3 + (100 - w.light) * 0.018);
+    w.light = clamp(w.light - dt * (freeze ? 0.82 : 2.15), 0, 100);
+    state.pulse = Math.max(0, state.pulse - dt * 1.55);
+    if (state.keys.has("KeyF") && state.pulse <= 0 && w.light > 8) {
+        state.pulse = 1;
+        w.light = clamp(w.light - 6.5, 0, 100);
+    }
+
+    const m = w.monster;
+    const dx = p.x - m.x, dy = p.y - m.y;
+    const md = Math.hypot(dx, dy) || 1;
+    const monsterSpeed = (0.74 + w.found * 0.24 + (100 - w.light) / 125) * dt;
+    moveWithCollision(m, (dx / md) * monsterSpeed, (dy / md) * monsterSpeed);
+    w.threat = clamp(100 - Math.min(100, md * 20), 0, 100);
+
+    for (const relic of w.relics) {
+        relic.pulse += dt * 2.5;
+        if (!relic.found && dist(p.x, p.y, relic.x, relic.y) < 0.42) {
+            relic.found = true;
+            w.found += 1;
+            w.light = clamp(w.light + 18, 0, 100);
+            statusEl.textContent = "Relic Found";
+        }
+    }
+
+    if (dist(p.x, p.y, m.x, m.y) < 0.42) {
+        w.finished = true;
+        statusEl.textContent = "Caught";
+        triggerScreamer("RUN", "Maxluq sizni topdi. Space bilan qayta boshlang.");
+    }
+    if (w.found === w.relics.length && dist(p.x, p.y, w.exit.x, w.exit.y) < 0.55) {
+        w.finished = true;
+        statusEl.textContent = "Escaped";
+        triggerScreamer("SAFE", "Siz chiqib ketdingiz. Space bilan yana o'ynang.");
+    }
+    if (w.light <= 0 && !w.finished) {
+        w.finished = true;
+        statusEl.textContent = "Darkness";
+        triggerScreamer("LOST", "Chiroq o'chdi. Qorong'ida qolib ketdingiz.");
+    }
+}
+
+function renderWorld() {
+    const w = state.world;
+    const p = w.player;
+    const theme = w.theme;
+    const breathOffset = Math.sin(state.breath * 1.6) * 5 + Math.sin(p.bob) * 6;
+    const halfH = canvas.height / 2;
+    const horizon = halfH + breathOffset;
+    const flicker = 0.94 + Math.sin(w.flicker) * 0.03 + Math.sin(w.flicker * 2.4) * 0.015;
+    const lightFactor = clamp((w.light / 100) * flicker, 0.3, 1.08);
+    const flashStrength = clamp(0.38 + lightFactor * 0.62 + state.pulse * 0.55, 0.35, 1.5);
+
+    const sky = ctx.createLinearGradient(0, 0, 0, horizon);
+    sky.addColorStop(0, theme.sky2);
+    sky.addColorStop(.45, theme.sky);
+    sky.addColorStop(.82, theme.ceiling);
+    sky.addColorStop(1, "#04070a");
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, canvas.width, horizon);
+    for (let i = 0; i < 32; i += 1) {
+        const px = (i * 157) % canvas.width;
+        const py = 30 + (i % 8) * 18;
+        ctx.fillStyle = `rgba(255,255,255,${0.02 + (i % 3) * 0.01})`;
+        ctx.fillRect(px, py, 2, 2);
+    }
+
+    const floor = ctx.createLinearGradient(0, horizon, 0, canvas.height);
+    floor.addColorStop(0, theme.floorGlow);
+    floor.addColorStop(.5, theme.ground);
+    floor.addColorStop(1, "#020304");
+    ctx.fillStyle = floor;
+    ctx.fillRect(0, horizon, canvas.width, canvas.height - horizon);
+    for (let y = Math.max(0, Math.floor(horizon)); y < canvas.height; y += 3) {
+        const depth = (y - horizon) / Math.max(1, canvas.height - horizon);
+        const alpha = depth * 0.05 * flashStrength;
+        const lineWidth = Math.max(1, Math.floor(depth * 3));
+        const inset = depth * canvas.width * 0.28;
+        ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+        ctx.fillRect(inset, y, canvas.width - inset * 2, lineWidth);
+    }
+    const fov = Math.PI / 2.9;
+    for (let x = 0; x < canvas.width; x += 2) {
+        const rayAngle = p.a - fov / 2 + (x / canvas.width) * fov;
+        const rawDist = castRay(p.x, p.y, rayAngle);
+        const corrected = rawDist * Math.cos(rayAngle - p.a);
+        const wallH = Math.min(canvas.height * 1.25, (canvas.height * 1.1) / Math.max(0.001, corrected));
+        const top = horizon - wallH / 2;
+        const beamFocus = 1 - Math.abs(x / canvas.width - 0.5) * 1.7;
+        const shade = clamp((1 - corrected / 12.5) * (0.55 + beamFocus * 0.6), 0.18, 1.08) * lightFactor;
+        const texture = 0.9 + Math.sin(corrected * 5.4 + x * 0.035) * 0.08;
+        const highlightAlpha = clamp((shade - 0.22) * 0.18, 0, 0.16);
+        ctx.fillStyle = `rgba(0,0,0,${0.7 - shade * 0.42})`;
+        ctx.fillRect(x, top, 2, wallH);
+        ctx.fillStyle = x % 4 === 0 ? theme.wall : theme.wall2;
+        ctx.globalAlpha = shade * texture;
+        ctx.fillRect(x, top, 2, wallH);
+        ctx.globalAlpha = 1;
+        if (shade > 0.28) {
+            ctx.fillStyle = `rgba(255,255,255,${highlightAlpha})`;
+            ctx.fillRect(x, top, 2, Math.max(1, wallH * 0.05));
+            ctx.fillStyle = `rgba(0,0,0,${0.08 + (1 - shade) * 0.18})`;
+            ctx.fillRect(x, top + wallH * 0.72, 2, Math.max(1, wallH * 0.28));
+        }
+    }
+
+    const sprites = [];
+    for (const relic of w.relics) if (!relic.found) sprites.push({type:"relic", x:relic.x, y:relic.y, color:theme.accent, pulse:relic.pulse});
+    sprites.push({type:"monster", x:w.monster.x, y:w.monster.y, color:"#ff5c75"});
+    sprites.push({type:"exit", x:w.exit.x, y:w.exit.y, color:w.found === w.relics.length ? "#78ffb5" : "#8b6f34"});
+    sprites.sort((a,b)=>dist(b.x,b.y,p.x,p.y)-dist(a.x,a.y,p.x,p.y));
+
+    for (const sprite of sprites) {
+        const dx = sprite.x - p.x;
+        const dy = sprite.y - p.y;
+        let angle = Math.atan2(dy, dx) - p.a;
+        while (angle > Math.PI) angle -= Math.PI * 2;
+        while (angle < -Math.PI) angle += Math.PI * 2;
+        if (Math.abs(angle) > fov * 0.72) continue;
+        const d = Math.hypot(dx, dy);
+        if (d < 0.2) continue;
+        const screenX = (0.5 + angle / fov) * canvas.width;
+        const size = Math.min(canvas.height * 0.85, canvas.height / d);
+        const baseY = horizon + size * 0.12;
+        const alpha = clamp(1 - d / 13, 0.16, 1) * flashStrength;
+        ctx.globalAlpha = alpha;
+        ctx.shadowBlur = sprite.type === "monster" ? 32 : 24;
+        ctx.shadowColor = sprite.color;
+        if (sprite.type === "relic") {
+            ctx.fillStyle = sprite.color;
+            ctx.beginPath();
+            ctx.moveTo(screenX, baseY - size * 0.46);
+            ctx.lineTo(screenX + size * 0.18, baseY);
+            ctx.lineTo(screenX, baseY + size * 0.46);
+            ctx.lineTo(screenX - size * 0.18, baseY);
+            ctx.closePath();
+            ctx.fill();
+        } else if (sprite.type === "monster") {
+            ctx.fillStyle = sprite.color;
+            ctx.beginPath();
+            ctx.arc(screenX, baseY - size * 0.05, size * 0.3, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillRect(screenX - size * 0.16, baseY + size * 0.1, size * 0.32, size * 0.24);
+            ctx.fillStyle = "#fff";
+            ctx.beginPath();
+            ctx.arc(screenX - size * 0.09, baseY - size * 0.08, size * 0.03, 0, Math.PI * 2);
+            ctx.arc(screenX + size * 0.09, baseY - size * 0.08, size * 0.03, 0, Math.PI * 2);
+            ctx.fill();
+        } else {
+            ctx.fillStyle = sprite.color;
+            ctx.fillRect(screenX - size * 0.14, baseY - size * 0.44, size * 0.28, size * 0.88);
+            ctx.fillStyle = "rgba(255,255,255,.18)";
+            ctx.fillRect(screenX - size * 0.08, baseY - size * 0.36, size * 0.16, size * 0.3);
+        }
+        ctx.shadowBlur = 0;
+        ctx.globalAlpha = 1;
+    }
+
+    for (const particle of state.particles) {
+        particle.y += particle.v * (0.8 + (1 - lightFactor));
+        if (particle.y > canvas.height) {
+            particle.y = -10;
+            particle.x = rnd(0, canvas.width);
+        }
+        ctx.fillStyle = `rgba(255,255,255,${0.03 + particle.z * 0.035})`;
+        ctx.fillRect(particle.x, particle.y, particle.z * 2, particle.z * 2);
+    }
+
+    const fog = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    fog.addColorStop(0, "rgba(255,255,255,.018)");
+    fog.addColorStop(.48, `rgba(255,255,255,${0.012 + (1 - lightFactor) * 0.03})`);
+    fog.addColorStop(1, "rgba(0,0,0,.22)");
+    ctx.fillStyle = fog;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    for (let y = 0; y < canvas.height; y += 3) {
+        ctx.fillStyle = `rgba(255,255,255,${y % 9 === 0 ? 0.02 : 0.006})`;
+        ctx.fillRect(0, y, canvas.width, 1);
+    }
+
+    const accentVignette = ctx.createRadialGradient(canvas.width / 2, horizon, canvas.height * 0.12, canvas.width / 2, canvas.height / 2, canvas.height * 0.9);
+    accentVignette.addColorStop(0, "rgba(0,0,0,0)");
+    accentVignette.addColorStop(.7, "rgba(0,0,0,.18)");
+    accentVignette.addColorStop(1, `rgba(0,0,0,.58)`);
+    ctx.fillStyle = accentVignette;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+}
+
+function draw() {
+    if (!state.world) return;
+    renderWorld();
+    const w = state.world;
+    objectiveEl.textContent = `${w.found}/${w.relics.length}`;
+    lightEl.textContent = `${Math.floor(w.light)}%`;
+    threatEl.textContent = `${Math.floor(w.threat)}%`;
+}
+
+function loop(t) {
+    const dt = Math.min(0.033, (t - (state.last || t)) / 1000);
+    state.last = t;
+    update(dt);
+    draw();
+    requestAnimationFrame(loop);
+}
+
+function applyRoom(data) {
+    state.room = data;
+    roomTitleChipEl.textContent = data.name;
+    locationChipEl.textContent = data.location.title;
+    atmosphereTextEl.textContent = data.atmosphere;
+    atmosphereInputEl.value = data.atmosphere;
+    playersEl.innerHTML = data.players.map((player) => `<div class="player" style="border-color:${player.accent}55;background:${player.accent}18">${player.nickname}${player.is_host ? " [host]" : ""}${player.is_me ? " [you]" : ""}</div>`).join("");
+    if (!state.world || state.world.slug !== data.location.slug) resetGame();
+    if (data.screamer && data.screamer !== state.lastScreamer) {
+        state.lastScreamer = data.screamer;
+        triggerScreamer(data.screamer.toUpperCase().replace(/-/g, " "), data.screamer_text || "Run.");
+    }
+    if (!data.screamer) state.lastScreamer = "";
+}
+
+async function sendAction(payload) {
+    const response = await fetch(`/horror/api/room/${roomCode}/action/`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json", "X-CSRFToken": csrfToken()},
+        body: JSON.stringify(payload),
+    });
+    if (!response.ok) return;
+    applyRoom(await response.json());
+}
+
+async function refreshState() {
+    const response = await fetch(`/horror/api/room/${roomCode}/`);
+    if (!response.ok) return;
+    applyRoom(await response.json());
+}
+
+document.querySelectorAll("[data-location]").forEach((button) => button.addEventListener("click", () => sendAction({action: "set_location", location: button.dataset.location})));
+document.querySelectorAll("[data-screamer]").forEach((button) => button.addEventListener("click", () => sendAction({action: "trigger_screamer", screamer: button.dataset.screamer})));
+document.getElementById("clearScreamer").addEventListener("click", () => sendAction({action: "clear_screamer"}));
+document.getElementById("saveAtmosphere").addEventListener("click", () => sendAction({action: "set_atmosphere", atmosphere: atmosphereInputEl.value}));
+closeMenuBtn.addEventListener("click", () => toggleMenu(false));
+
+canvas.addEventListener("click", async () => {
+    if (!state.menuOpen && document.pointerLockElement !== canvas) await canvas.requestPointerLock();
+});
+document.addEventListener("pointerlockchange", () => {
+    state.pointerLocked = document.pointerLockElement === canvas;
+});
+document.addEventListener("mousemove", (event) => {
+    if (!state.pointerLocked || !state.world || state.menuOpen) return;
+    state.world.player.a += event.movementX * 0.0026;
+});
+
+window.addEventListener("keydown", (event) => {
+    if (event.code === "Tab") {
+        event.preventDefault();
+        toggleMenu();
+        return;
+    }
+    state.keys.add(event.code);
+    if (event.code === "Space" && state.world?.finished) resetGame();
+});
+window.addEventListener("keyup", (event) => {
+    state.keys.delete(event.code);
+});
+
+applyRoom(roomData);
+resizeCanvas();
+window.addEventListener("resize", resizeCanvas);
+setInterval(refreshState, 2500);
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

@@ -1,13 +1,26 @@
+databases:
+  - name: dsju-games-db
+    plan: free
+    databaseName: dsjugames
+    user: dsjugames
+
 services:
   - type: web
     name: dsju-games
-    env: python
+    runtime: python
     plan: free
     rootDir: config
     buildCommand: bash build.sh
     startCommand: gunicorn config.wsgi:application
+    healthCheckPath: /
     envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: dsju-games-db
+          property: connectionString
       - key: DEBUG
         value: "False"
       - key: SECRET_KEY
         generateValue: true
+      - key: WEB_CONCURRENCY
+        value: "4"
