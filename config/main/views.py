@@ -398,6 +398,11 @@ def keepalive(request):
     return JsonResponse({"status": "ok", "authenticated": request.user.is_authenticated})
 
 
+@require_GET
+def healthz(request):
+    return JsonResponse({"status": "ok"})
+
+
 def save_score(request):
     if request.method == "POST":
         data = json.loads(request.body)
