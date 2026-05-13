@@ -12,7 +12,7 @@ services:
     rootDir: config
     buildCommand: bash build.sh
     startCommand: gunicorn config.wsgi:application
-    healthCheckPath: /
+    healthCheckPath: /account/
     envVars:
       - key: DATABASE_URL
         fromDatabase:
