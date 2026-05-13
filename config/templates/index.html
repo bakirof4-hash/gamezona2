@@ -54,6 +54,20 @@ a{text-decoration:none;color:inherit}
     background:rgba(255,255,255,.05);
     color:var(--muted);
 }
+.account-bar{
+    margin-top:20px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    flex-wrap:wrap;
+    padding:14px 16px;
+    border-radius:24px;
+    border:1px solid var(--line);
+    background:rgba(255,255,255,.04);
+}
+.account-copy strong{display:block;font-size:18px}
+.account-copy span{color:var(--muted);font-size:14px}
 .glass{
     border:1px solid var(--line);
     border-radius:32px;
@@ -195,6 +209,19 @@ a{text-decoration:none;color:inherit}
 .game-card h3{margin:0 0 8px;font-size:28px}
 .game-card p{margin:0 0 16px;color:var(--muted);line-height:1.6}
 .actions{display:flex;gap:10px;flex-wrap:wrap}
+.status{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    padding:8px 12px;
+    border-radius:999px;
+    background:rgba(255,255,255,.06);
+    color:var(--muted);
+    font-size:12px;
+    letter-spacing:.12em;
+    text-transform:uppercase;
+}
+.logout-form{margin:0}
 footer{
     margin-top:38px;
     padding:28px 20px;
@@ -213,8 +240,16 @@ footer{
         <div class="brand">GameZone Ultra</div>
         <div class="links">
             <a class="pill" href="/">Home</a>
-            <a class="pill" href="/horror/">Leaderboard</a>
+            <a class="pill" href="/horror/">Horror Rooms</a>
             <a class="pill" href="/author">Author</a>
+            {% if request.user.is_authenticated %}
+            <span class="pill">{{ request.user.username }}</span>
+            {% if request.user.username == "Umidjon" %}
+            <a class="pill" href="{% url 'owner_dashboard' %}">Dashboard</a>
+            {% endif %}
+            {% else %}
+            <a class="pill" href="/account/">Login</a>
+            {% endif %}
         </div>
     </nav>
 
@@ -222,7 +257,37 @@ footer{
         <div class="eyebrow">GameZone Ultra</div>
         <h1>O'yinlar katalogi</h1>
         <p>Takrorlanmaydigan mini arcade o'yinlar to'plami.</p>
+        <div class="account-bar">
+            <div class="account-copy">
+                {% if request.user.is_authenticated %}
+                <strong>Xush kelibsiz, {{ request.user.username }}</strong>
+                <span>Akkauntingiz faol. Session avtomatik yangilanadi.</span>
+                {% else %}
+                <strong>Login endi tayyor</strong>
+                <span>Chiroyli auth sahifa, signup va barqarorroq session qo'shildi.</span>
+                {% endif %}
+            </div>
+            <div class="actions">
+                <span class="status">5 min keepalive</span>
+                {% if request.user.is_authenticated %}
+                <form class="logout-form" method="post" action="{% url 'account_logout' %}">
+                    {% csrf_token %}
+                    <button class="btn ghost" type="submit">Logout</button>
+                </form>
+                {% else %}
+                <a class="btn primary" href="{% url 'account' %}">Open Login</a>
+                {% endif %}
+            </div>
+        </div>
     </section>
+
+    {% if messages %}
+    <section class="glass" style="margin-top:18px;padding:18px 22px;">
+        {% for message in messages %}
+        <div>{{ message }}</div>
+        {% endfor %}
+    </section>
+    {% endif %}
 
     <div class="section-head">
         <div>
@@ -253,5 +318,17 @@ footer{
         <div>&copy; 2026 Umidjon Mamatkosimov</div>
     </footer>
 </div>
+<script>
+function keepAlive() {
+    fetch("{% url 'keepalive' %}", {
+        method: "GET",
+        credentials: "same-origin",
+        headers: {"X-Requested-With": "XMLHttpRequest"},
+        cache: "no-store",
+    }).catch(() => {});
+}
+keepAlive();
+setInterval(keepAlive, 300000);
+</script>
 </body>
 </html>

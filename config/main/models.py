@@ -65,3 +65,14 @@ class HorrorPresence(models.Model):
 
     def __str__(self):
         return f"{self.nickname} @ {self.room.code}"
+
+
+class Visitor(models.Model):
+    session_key = models.CharField(max_length=64, unique=True)
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    display_name = models.CharField(max_length=150)
+    first_seen = models.DateTimeField(auto_now_add=True)
+    last_seen = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.display_name

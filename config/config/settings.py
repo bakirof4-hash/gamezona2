@@ -112,6 +112,11 @@ USE_I18N = True
 
 USE_TZ = True
 
+LOGIN_URL = "/account/"
+SESSION_COOKIE_AGE = 60 * 60 * 24 * 14
+SESSION_SAVE_EVERY_REQUEST = True
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False
+
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
@@ -124,7 +129,7 @@ if HAS_WHITENOISE:
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
-if not DEBUG:
+if not DEBUG and render_host:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True

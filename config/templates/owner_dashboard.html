@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Owner Dashboard</title>
+<style>
+:root{
+    --bg:#06101d;
+    --bg2:#10243a;
+    --panel:rgba(7,18,31,.82);
+    --line:rgba(255,255,255,.08);
+    --text:#f5fbff;
+    --muted:#9ab0c7;
+    --cyan:#88eeff;
+    --gold:#ffd36e;
+}
+*{box-sizing:border-box}
+body{
+    margin:0;
+    min-height:100vh;
+    font-family:"Segoe UI",sans-serif;
+    color:var(--text);
+    background:
+        radial-gradient(circle at 12% 14%, rgba(255,211,110,.16), transparent 18%),
+        radial-gradient(circle at 88% 8%, rgba(136,238,255,.14), transparent 22%),
+        linear-gradient(160deg,var(--bg),var(--bg2) 58%, #02060c);
+}
+.shell{width:min(1200px,calc(100% - 28px));margin:0 auto;padding:20px 0 36px}
+.panel{
+    border:1px solid var(--line);
+    border-radius:28px;
+    background:var(--panel);
+    backdrop-filter:blur(16px);
+    box-shadow:0 28px 80px rgba(0,0,0,.28);
+}
+.nav,.hero,.table-wrap{padding:20px 22px}
+.nav{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+}
+.brand{font:700 24px/1.1 Georgia,serif}
+.links{display:flex;gap:10px;flex-wrap:wrap}
+.pill{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    padding:10px 14px;
+    border-radius:999px;
+    border:1px solid rgba(255,255,255,.1);
+    background:rgba(255,255,255,.05);
+    color:var(--muted);
+    text-decoration:none;
+}
+.hero{margin-top:18px}
+.eyebrow{
+    display:inline-flex;
+    padding:8px 12px;
+    border-radius:999px;
+    background:rgba(255,255,255,.06);
+    color:var(--cyan);
+    font-size:12px;
+    letter-spacing:.16em;
+    text-transform:uppercase;
+}
+h1{margin:16px 0 10px;font:700 clamp(42px,6vw,72px)/.94 Georgia,serif}
+p{margin:0;color:var(--muted);line-height:1.65}
+.stats{margin-top:22px;display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.stat{padding:18px;border-radius:20px;border:1px solid var(--line);background:rgba(255,255,255,.04)}
+.stat strong{display:block;font-size:30px}
+.stat span{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.table-wrap{margin-top:18px}
+table{width:100%;border-collapse:collapse}
+th,td{padding:14px 12px;text-align:left;border-bottom:1px solid rgba(255,255,255,.08)}
+th{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+td strong{font-size:16px}
+.tag{
+    display:inline-flex;
+    padding:7px 10px;
+    border-radius:999px;
+    background:rgba(255,255,255,.06);
+    color:var(--text);
+}
+@media (max-width:800px){
+    .stats{grid-template-columns:1fr}
+    table,thead,tbody,tr,th,td{display:block}
+    thead{display:none}
+    tr{padding:14px 0;border-bottom:1px solid rgba(255,255,255,.08)}
+    td{border:0;padding:8px 0}
+}
+</style>
+</head>
+<body>
+<div class="shell">
+    <div class="panel nav">
+        <div class="brand">Owner Dashboard</div>
+        <div class="links">
+            <a class="pill" href="/">Home</a>
+            <a class="pill" href="/account/">Account</a>
+        </div>
+    </div>
+
+    <section class="panel hero">
+        <div class="eyebrow">Private</div>
+        <h1>Faqat {{ owner_username }} ko'radi</h1>
+        <p>Bu yerda saytga kirgan visitorlar soni va ularning nomlari chiqadi. Login qilgan bo'lsa username ko'rinadi, bo'lmasa session asosidagi guest nom chiqadi.</p>
+        <div class="stats">
+            <div class="stat"><strong>{{ visitor_count }}</strong><span>Jami visitor</span></div>
+            <div class="stat"><strong>{{ visitors|length }}</strong><span>Ro'yxatda</span></div>
+            <div class="stat"><strong>{{ owner_username }}</strong><span>Owner</span></div>
+        </div>
+    </section>
+
+    <section class="panel table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Ism</th>
+                    <th>Type</th>
+                    <th>Birinchi kirish</th>
+                    <th>Oxirgi faollik</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for visitor in visitors %}
+                <tr>
+                    <td><strong>{{ visitor.display_name }}</strong></td>
+                    <td>{% if visitor.user_id %}<span class="tag">User</span>{% else %}<span class="tag">Guest</span>{% endif %}</td>
+                    <td>{{ visitor.first_seen|date:"Y-m-d H:i" }}</td>
+                    <td>{{ visitor.last_seen|date:"Y-m-d H:i" }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4">Hali visitor yo'q.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+</div>
+</body>
+</html>

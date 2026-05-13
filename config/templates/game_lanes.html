@@ -136,5 +136,17 @@
         window.addEventListener("keydown",e=>{if(["ArrowLeft","KeyA"].includes(e.code))move(-1); if(["ArrowRight","KeyD"].includes(e.code))move(1); if(!run&&e.code==="Space")reset()});
         drawCity(); drawRoad(); car(player.x,player.y,player.color,true); hud();
     </script>
+    <script>
+        function keepAlive() {
+            fetch("/keepalive/", {
+                method: "GET",
+                credentials: "same-origin",
+                headers: {"X-Requested-With": "XMLHttpRequest"},
+                cache: "no-store",
+            }).catch(() => {});
+        }
+        keepAlive();
+        setInterval(keepAlive, 300000);
+    </script>
 </body>
 </html>

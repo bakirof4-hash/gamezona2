@@ -151,5 +151,17 @@
 
 </div>
 
+<script>
+function keepAlive() {
+    fetch("/keepalive/", {
+        method: "GET",
+        credentials: "same-origin",
+        headers: {"X-Requested-With": "XMLHttpRequest"},
+        cache: "no-store",
+    }).catch(() => {});
+}
+keepAlive();
+setInterval(keepAlive, 300000);
+</script>
 </body>
 </html>

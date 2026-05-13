@@ -3,6 +3,10 @@ from . import views
 
 urlpatterns = [
     path('', views.home, name='home'),
+    path('account/', views.account, name='account'),
+    path('account/logout/', views.account_logout, name='account_logout'),
+    path('owner/dashboard/', views.owner_dashboard, name='owner_dashboard'),
+    path('keepalive/', views.keepalive, name='keepalive'),
     path('horror/', views.horror_home, name='horror_home'),
     path('horror/create/', views.horror_create_room, name='horror_create_room'),
     path('horror/join/', views.horror_join_room, name='horror_join_room'),

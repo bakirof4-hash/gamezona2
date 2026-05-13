@@ -112,5 +112,17 @@
         window.addEventListener("keyup",e=>{if(["Space","ArrowUp","KeyW"].includes(e.code)){e.preventDefault();s.ship.boost=false}});
         stars();render(.016);hud();
     </script>
+    <script>
+        function keepAlive() {
+            fetch("/keepalive/", {
+                method: "GET",
+                credentials: "same-origin",
+                headers: {"X-Requested-With": "XMLHttpRequest"},
+                cache: "no-store",
+            }).catch(() => {});
+        }
+        keepAlive();
+        setInterval(keepAlive, 300000);
+    </script>
 </body>
 </html>

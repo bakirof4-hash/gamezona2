@@ -2,12 +2,18 @@ import json
 import random
 import string
 
+from django.contrib import messages
+from django.contrib.auth import login, logout
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.models import User
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_GET, require_POST
 
-from .models import HorrorPresence, HorrorRoom, Score
+from .forms import LoginForm, SignUpForm
+from .models import HorrorPresence, HorrorRoom, Score, Visitor
 
 
 NEW_ARCADE_GAMES = [
@@ -42,12 +48,74 @@ SCREAMERS = [
 ]
 
 ACCENTS = ["#ff5c75", "#7df9ff", "#9b87ff", "#ffcf5a", "#78ffb5", "#ff9d6b"]
+OWNER_USERNAME = "Umidjon"
+OWNER_PASSWORD = "Umid201#$"
 
 
 def ensure_session(request):
     if not request.session.session_key:
         request.session.create()
     return request.session.session_key
+
+
+def ensure_owner_account():
+    owner, created = User.objects.get_or_create(
+        username=OWNER_USERNAME,
+        defaults={"is_staff": True, "is_superuser": True},
+    )
+    changed = created
+    if not owner.is_staff:
+        owner.is_staff = True
+        changed = True
+    if not owner.is_superuser:
+        owner.is_superuser = True
+        changed = True
+    if not owner.check_password(OWNER_PASSWORD):
+        owner.set_password(OWNER_PASSWORD)
+        changed = True
+    if changed:
+        owner.save()
+    return owner
+
+
+def track_visitor(request):
+    session_key = ensure_session(request)
+    guest_name = request.session.get("horror_nickname") or f"Guest-{session_key[:6].upper()}"
+    display_name = request.user.username if request.user.is_authenticated else guest_name
+    defaults = {"display_name": display_name}
+    if request.user.is_authenticated:
+        defaults["user"] = request.user
+    Visitor.objects.update_or_create(session_key=session_key, defaults=defaults)
+
+
+def owner_required(view_func):
+    @login_required
+    def wrapped(request, *args, **kwargs):
+        ensure_owner_account()
+        if request.user.username != OWNER_USERNAME:
+            return redirect("home")
+        return view_func(request, *args, **kwargs)
+
+    return wrapped
+
+
+def auth_gate(view_func):
+    def wrapped(request, *args, **kwargs):
+        ensure_owner_account()
+        track_visitor(request)
+        if request.user.is_authenticated:
+            return view_func(request, *args, **kwargs)
+        login_url = reverse("account")
+        return redirect(f"{login_url}?tab=signup&next={request.get_full_path()}")
+
+    return wrapped
+
+
+def safe_next_url(request):
+    candidate = request.POST.get("next") or request.GET.get("next")
+    if candidate and url_has_allowed_host_and_scheme(candidate, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
+        return candidate
+    return reverse("home")
 
 
 def make_room_code():
@@ -109,27 +177,44 @@ def upsert_presence(room, session_key, nickname):
     return presence
 
 
+@auth_gate
 def home(request):
+    ensure_owner_account()
+    track_visitor(request)
     games = build_game_library()
-    return render(request, "index.html", {"games": games, "featured_games": games[:6], "new_games_count": len(NEW_ARCADE_GAMES), "total_games_count": len(games)})
+    return render(
+        request,
+        "index.html",
+        {
+            "games": games,
+            "featured_games": games[:6],
+            "new_games_count": len(NEW_ARCADE_GAMES),
+            "total_games_count": len(games),
+        },
+    )
 
 
+@auth_gate
 def game(request):
     return render(request, "game.html")
 
 
+@auth_gate
 def game_tiles(request):
     return render(request, "game_tiles.html")
 
 
+@auth_gate
 def game_lanes(request):
     return render(request, "game_lanes.html")
 
 
+@auth_gate
 def game_orbit(request):
     return render(request, "game_orbit.html")
 
 
+@auth_gate
 def arcade_game(request, slug):
     game_map = {game["slug"]: game for game in NEW_ARCADE_GAMES}
     game_data = game_map.get(slug)
@@ -139,23 +224,91 @@ def arcade_game(request, slug):
 
 
 def auth(request):
+    track_visitor(request)
     return render(request, "author.html")
 
 
+def account(request):
+    ensure_owner_account()
+    track_visitor(request)
+    if request.user.is_authenticated:
+        return redirect(safe_next_url(request))
+
+    login_form = LoginForm(request=request)
+    signup_form = SignUpForm()
+    active_tab = request.GET.get("tab") or "login"
+
+    if request.method == "POST":
+        action = request.POST.get("action")
+        active_tab = "signup" if action == "signup" else "login"
+
+        if action == "signup":
+            signup_form = SignUpForm(request.POST)
+            login_form = LoginForm(request=request)
+            if signup_form.is_valid():
+                user = signup_form.save()
+                login(request, user)
+                messages.success(request, "Akkaunt yaratildi.")
+                return redirect(safe_next_url(request))
+        else:
+            login_form = LoginForm(request=request, data=request.POST)
+            signup_form = SignUpForm()
+            if login_form.is_valid():
+                login(request, login_form.get_user())
+                messages.success(request, "Tizimga kirildi.")
+                return redirect(safe_next_url(request))
+
+    return render(
+        request,
+        "auth.html",
+        {
+            "login_form": login_form,
+            "signup_form": signup_form,
+            "active_tab": active_tab,
+            "next_url": safe_next_url(request),
+        },
+    )
+
+
+@require_POST
+def account_logout(request):
+    logout(request)
+    messages.info(request, "Tizimdan chiqildi.")
+    return redirect("home")
+
+
+@owner_required
+def owner_dashboard(request):
+    visitors = Visitor.objects.order_by("-last_seen")
+    return render(
+        request,
+        "owner_dashboard.html",
+        {
+            "visitors": visitors,
+            "visitor_count": visitors.count(),
+            "owner_username": OWNER_USERNAME,
+        },
+    )
+
+
+@auth_gate
 def hom2(request):
     top = Score.objects.order_by("-score")[:10]
     return render(request, "home.html", {"top": top, "games": build_game_library()})
 
 
+@auth_gate
 def leaderboard(request):
     top = Score.objects.order_by("-score")[:10]
     return render(request, "leaderboard.html", {"top": top})
 
 
+@auth_gate
 def horror_home(request):
     return render(request, "horror_home.html", {"locations": HORROR_LOCATIONS, "screamers": SCREAMERS})
 
 
+@auth_gate
 @require_POST
 def horror_create_room(request):
     session_key = ensure_session(request)
@@ -170,6 +323,7 @@ def horror_create_room(request):
     return redirect("horror_room", code=room.code)
 
 
+@auth_gate
 @require_POST
 def horror_join_room(request):
     session_key = ensure_session(request)
@@ -181,6 +335,7 @@ def horror_join_room(request):
     return redirect("horror_room", code=room.code)
 
 
+@auth_gate
 def horror_room(request, code):
     session_key = ensure_session(request)
     room = get_object_or_404(HorrorRoom, code=code.upper())
@@ -191,6 +346,7 @@ def horror_room(request, code):
     return render(request, "horror_room.html", {"room": room, "presence": presence, "room_json": room_payload(room, session_key), "locations": HORROR_LOCATIONS, "screamers": SCREAMERS})
 
 
+@auth_gate
 @require_GET
 def horror_room_state(request, code):
     session_key = ensure_session(request)
@@ -200,6 +356,7 @@ def horror_room_state(request, code):
     return JsonResponse(room_payload(room, session_key))
 
 
+@auth_gate
 @require_POST
 def horror_room_action(request, code):
     session_key = ensure_session(request)
@@ -231,6 +388,14 @@ def horror_room_action(request, code):
             room.atmosphere = atmosphere
     room.save()
     return JsonResponse(room_payload(room, session_key))
+
+
+@require_GET
+def keepalive(request):
+    ensure_owner_account()
+    track_visitor(request)
+    request.session.modified = True
+    return JsonResponse({"status": "ok", "authenticated": request.user.is_authenticated})
 
 
 def save_score(request):
